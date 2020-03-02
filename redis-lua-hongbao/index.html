@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="抢红包的需求分析抢红包的场景有点像秒杀，但是要比秒杀简单点。因为秒杀通常要和库存相关。而抢红包则可以允许有些红包没有被抢到，因为发红包的人不会有损失，没抢完的钱再退回给发红包的人即可。另外像小米这样的抢购也要比淘宝的要简单，也是因为像小米这样是一个公司的，如果有少量没有抢到，则下次再抢，人工修复下数据是很简单的事。而像淘宝这么多商品，要是每一个都存在着修复数据的风险，那如果出故障了则很麻烦。 淘宝">
+<meta name="keywords" content="redis,lua">
+<meta property="og:type" content="article">
+<meta property="og:title" content="利用redis + lua解决抢红包高并发的问题">
+<meta property="og:url" content="http://hengyunabc.github.io/redis-lua-hongbao/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="抢红包的需求分析抢红包的场景有点像秒杀，但是要比秒杀简单点。因为秒杀通常要和库存相关。而抢红包则可以允许有些红包没有被抢到，因为发红包的人不会有损失，没抢完的钱再退回给发红包的人即可。另外像小米这样的抢购也要比淘宝的要简单，也是因为像小米这样是一个公司的，如果有少量没有抢到，则下次再抢，人工修复下数据是很简单的事。而像淘宝这么多商品，要是每一个都存在着修复数据的风险，那如果出故障了则很麻烦。 淘宝">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="利用redis + lua解决抢红包高并发的问题">
+<meta name="twitter:description" content="抢红包的需求分析抢红包的场景有点像秒杀，但是要比秒杀简单点。因为秒杀通常要和库存相关。而抢红包则可以允许有些红包没有被抢到，因为发红包的人不会有损失，没抢完的钱再退回给发红包的人即可。另外像小米这样的抢购也要比淘宝的要简单，也是因为像小米这样是一个公司的，如果有少量没有抢到，则下次再抢，人工修复下数据是很简单的事。而像淘宝这么多商品，要是每一个都存在着修复数据的风险，那如果出故障了则很麻烦。 淘宝">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/redis-lua-hongbao/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>利用redis + lua解决抢红包高并发的问题 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/redis-lua-hongbao/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">利用redis + lua解决抢红包高并发的问题
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2014-02-20 22:58:28" itemprop="dateCreated datePublished" datetime="2014-02-20T22:58:28+00:00">2014-02-20</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="抢红包的需求分析"><a href="#抢红包的需求分析" class="headerlink" title="抢红包的需求分析"></a>抢红包的需求分析</h2><p>抢红包的场景有点像秒杀，但是要比秒杀简单点。<br>因为秒杀通常要和库存相关。而抢红包则可以允许有些红包没有被抢到，因为发红包的人不会有损失，没抢完的钱再退回给发红包的人即可。<br>另外像小米这样的抢购也要比淘宝的要简单，也是因为像小米这样是一个公司的，如果有少量没有抢到，则下次再抢，人工修复下数据是很简单的事。而像淘宝这么多商品，要是每一个都存在着修复数据的风险，那如果出故障了则很麻烦。</p>
+<p>淘宝的专家丁奇有个文章有写到淘宝是如何应对秒杀的：《秒杀场景下MySQL的低效–原因和改进》</p>
+<p><a href="http://blog.nosqlfan.com/html/4209.html" target="_blank" rel="noopener">http://blog.nosqlfan.com/html/4209.html</a></p>
+<h2 id="基于redis的抢红包方案"><a href="#基于redis的抢红包方案" class="headerlink" title="基于redis的抢红包方案"></a>基于redis的抢红包方案</h2><p>下面介绍一种基于redis的抢红包方案。</p>
+<p>把原始的红包称为大红包，拆分后的红包称为小红包。</p>
+<ol>
+<li><p>小红包预先生成，插到数据库里，红包对应的用户ID是null。生成算法见另一篇blog：<a href="http://blog.csdn.net/hengyunabc/article/details/19177877" target="_blank" rel="noopener">http://blog.csdn.net/hengyunabc/article/details/19177877</a></p>
+</li>
+<li><p>每个大红包对应两个redis队列，一个是未消费红包队列，另一个是已消费红包队列。开始时，把未抢的小红包全放到未消费红包队列里。</p>
+<p> 未消费红包队列里是json字符串，如<code>{userId:&#39;789&#39;, money:&#39;300&#39;}</code>。</p>
+</li>
+<li><p>在redis中用一个map来过滤已抢到红包的用户。</p>
+</li>
+<li><p>抢红包时，先判断用户是否抢过红包，如果没有，则从未消费红包队列中取出一个小红包，再push到另一个已消费队列中，最后把用户ID放入去重的map中。</p>
+</li>
+<li><p>用一个单线程批量把已消费队列里的红包取出来，再批量update红包的用户ID到数据库里。</p>
+</li>
+</ol>
+<p>上面的流程是很清楚的，但是在第4步时，如果是用户快速点了两次，或者开了两个浏览器来抢红包，会不会有可能用户抢到了两个红包？</p>
+<p>为了解决这个问题，采用了lua脚本方式，让第4步整个过程是原子性地执行。</p>
+<p>下面是在redis上执行的Lua脚本：</p>
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 函数：尝试获得红包，如果成功，则返回json字符串，如果不成功，则返回空</span></span><br><span class="line"><span class="comment">-- 参数：红包队列名， 已消费的队列名，去重的Map名，用户ID</span></span><br><span class="line"><span class="comment">-- 返回值：nil 或者 json字符串，包含用户ID：userId，红包ID：id，红包金额：money</span></span><br><span class="line"> </span><br><span class="line"><span class="comment">-- 如果用户已抢过红包，则返回nil</span></span><br><span class="line"><span class="keyword">if</span> redis.call(<span class="string">'hexists'</span>, KEYS[<span class="number">3</span>], KEYS[<span class="number">4</span>]) ~= <span class="number">0</span> <span class="keyword">then</span></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line"><span class="keyword">else</span></span><br><span class="line">  <span class="comment">-- 先取出一个小红包</span></span><br><span class="line">  <span class="keyword">local</span> hongBao = redis.call(<span class="string">'rpop'</span>, KEYS[<span class="number">1</span>]);</span><br><span class="line">  <span class="keyword">if</span> hongBao <span class="keyword">then</span></span><br><span class="line">    <span class="keyword">local</span> x = cjson.decode(hongBao);</span><br><span class="line">    <span class="comment">-- 加入用户ID信息</span></span><br><span class="line">    x[<span class="string">'userId'</span>] = KEYS[<span class="number">4</span>];</span><br><span class="line">    <span class="keyword">local</span> re = cjson.encode(x);</span><br><span class="line">    <span class="comment">-- 把用户ID放到去重的set里</span></span><br><span class="line">    redis.call(<span class="string">'hset'</span>, KEYS[<span class="number">3</span>], KEYS[<span class="number">4</span>], KEYS[<span class="number">4</span>]);</span><br><span class="line">    <span class="comment">-- 把红包放到已消费队列里</span></span><br><span class="line">    redis.call(<span class="string">'lpush'</span>, KEYS[<span class="number">2</span>], re);</span><br><span class="line">    <span class="keyword">return</span> re;</span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"><span class="keyword">return</span> <span class="literal">nil</span></span><br></pre></td></tr></table></figure>
+<p>下面是测试代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TestEval</span> </span>&#123;</span><br><span class="line">	<span class="keyword">static</span> String host = <span class="string">"localhost"</span>;</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">int</span> honBaoCount = <span class="number">1_0_0000</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">int</span> threadCount = <span class="number">20</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">static</span> String hongBaoList = <span class="string">"hongBaoList"</span>;</span><br><span class="line">	<span class="keyword">static</span> String hongBaoConsumedList = <span class="string">"hongBaoConsumedList"</span>;</span><br><span class="line">	<span class="keyword">static</span> String hongBaoConsumedMap = <span class="string">"hongBaoConsumedMap"</span>;</span><br><span class="line">	</span><br><span class="line">	<span class="keyword">static</span> Random random = <span class="keyword">new</span> Random();</span><br><span class="line">	</span><br><span class="line"><span class="comment">//	-- 函数：尝试获得红包，如果成功，则返回json字符串，如果不成功，则返回空</span></span><br><span class="line"><span class="comment">//	-- 参数：红包队列名， 已消费的队列名，去重的Map名，用户ID</span></span><br><span class="line"><span class="comment">//	-- 返回值：nil 或者 json字符串，包含用户ID：userId，红包ID：id，红包金额：money</span></span><br><span class="line">	<span class="keyword">static</span> String tryGetHongBaoScript = </span><br><span class="line"><span class="comment">//			"local bConsumed = redis.call('hexists', KEYS[3], KEYS[4]);\n"</span></span><br><span class="line"><span class="comment">//			+ "print('bConsumed:' ,bConsumed);\n"</span></span><br><span class="line">			<span class="string">"if redis.call('hexists', KEYS[3], KEYS[4]) ~= 0 then\n"</span></span><br><span class="line">			+ <span class="string">"return nil\n"</span></span><br><span class="line">			+ <span class="string">"else\n"</span></span><br><span class="line">			+ <span class="string">"local hongBao = redis.call('rpop', KEYS[1]);\n"</span></span><br><span class="line"><span class="comment">//			+ "print('hongBao:', hongBao);\n"</span></span><br><span class="line">			+ <span class="string">"if hongBao then\n"</span></span><br><span class="line">			+ <span class="string">"local x = cjson.decode(hongBao);\n"</span></span><br><span class="line">			+ <span class="string">"x['userId'] = KEYS[4];\n"</span></span><br><span class="line">			+ <span class="string">"local re = cjson.encode(x);\n"</span></span><br><span class="line">			+ <span class="string">"redis.call('hset', KEYS[3], KEYS[4], KEYS[4]);\n"</span></span><br><span class="line">			+ <span class="string">"redis.call('lpush', KEYS[2], re);\n"</span></span><br><span class="line">			+ <span class="string">"return re;\n"</span></span><br><span class="line">			+ <span class="string">"end\n"</span></span><br><span class="line">			+ <span class="string">"end\n"</span></span><br><span class="line">			+ <span class="string">"return nil"</span>;</span><br><span class="line">	<span class="keyword">static</span> StopWatch watch = <span class="keyword">new</span> StopWatch();</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line"><span class="comment">//		testEval();</span></span><br><span class="line">		generateTestData();</span><br><span class="line">		testTryGetHongBao();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">static</span> <span class="keyword">public</span> <span class="keyword">void</span> <span class="title">generateTestData</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">		Jedis jedis = <span class="keyword">new</span> Jedis(host);</span><br><span class="line">		jedis.flushAll();</span><br><span class="line">		<span class="keyword">final</span> CountDownLatch latch = <span class="keyword">new</span> CountDownLatch(threadCount);</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; threadCount; ++i) &#123;</span><br><span class="line">			<span class="keyword">final</span> <span class="keyword">int</span> temp = i;</span><br><span class="line">			Thread thread = <span class="keyword">new</span> Thread() &#123;</span><br><span class="line">				<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">					Jedis jedis = <span class="keyword">new</span> Jedis(host);</span><br><span class="line">					<span class="keyword">int</span> per = honBaoCount/threadCount;</span><br><span class="line">					JSONObject object = <span class="keyword">new</span> JSONObject();</span><br><span class="line">					<span class="keyword">for</span>(<span class="keyword">int</span> j = temp * per; j &lt; (temp+<span class="number">1</span>) * per; j++) &#123;</span><br><span class="line">						object.put(<span class="string">"id"</span>, j);</span><br><span class="line">						object.put(<span class="string">"money"</span>, j);</span><br><span class="line">						jedis.lpush(hongBaoList, object.toJSONString());</span><br><span class="line">					&#125;</span><br><span class="line">					latch.countDown();</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;;</span><br><span class="line">			thread.start();</span><br><span class="line">		&#125;</span><br><span class="line">		latch.await();</span><br><span class="line">	&#125;</span><br><span class="line">	</span><br><span class="line">	<span class="function"><span class="keyword">static</span> <span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testTryGetHongBao</span><span class="params">()</span> <span class="keyword">throws</span> InterruptedException </span>&#123;</span><br><span class="line">		<span class="keyword">final</span> CountDownLatch latch = <span class="keyword">new</span> CountDownLatch(threadCount);</span><br><span class="line">		System.err.println(<span class="string">"start:"</span> + System.currentTimeMillis()/<span class="number">1000</span>);</span><br><span class="line">		watch.start();</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; threadCount; ++i) &#123;</span><br><span class="line">			<span class="keyword">final</span> <span class="keyword">int</span> temp = i;</span><br><span class="line">			Thread thread = <span class="keyword">new</span> Thread() &#123;</span><br><span class="line">				<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">run</span><span class="params">()</span> </span>&#123;</span><br><span class="line">					Jedis jedis = <span class="keyword">new</span> Jedis(host);</span><br><span class="line">					String sha = jedis.scriptLoad(tryGetHongBaoScript);</span><br><span class="line">					<span class="keyword">int</span> j = honBaoCount/threadCount * temp;</span><br><span class="line">					<span class="keyword">while</span>(<span class="keyword">true</span>) &#123;</span><br><span class="line">						Object object = jedis.eval(tryGetHongBaoScript, <span class="number">4</span>, hongBaoList, hongBaoConsumedList, hongBaoConsumedMap, <span class="string">""</span> + j);</span><br><span class="line">						j++;</span><br><span class="line">						<span class="keyword">if</span> (object != <span class="keyword">null</span>) &#123;</span><br><span class="line"><span class="comment">//							System.out.println("get hongBao:" + object);</span></span><br><span class="line">						&#125;<span class="keyword">else</span> &#123;</span><br><span class="line">							<span class="comment">//已经取完了</span></span><br><span class="line">							<span class="keyword">if</span>(jedis.llen(hongBaoList) == <span class="number">0</span>)</span><br><span class="line">								<span class="keyword">break</span>;</span><br><span class="line">						&#125;</span><br><span class="line">					&#125;</span><br><span class="line">					latch.countDown();</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;;</span><br><span class="line">			thread.start();</span><br><span class="line">		&#125;</span><br><span class="line">		</span><br><span class="line">		latch.await();</span><br><span class="line">		watch.stop();</span><br><span class="line">		</span><br><span class="line">		System.err.println(<span class="string">"time:"</span> + watch.getTotalTimeSeconds());</span><br><span class="line">		System.err.println(<span class="string">"speed:"</span> + honBaoCount/watch.getTotalTimeSeconds());</span><br><span class="line">		System.err.println(<span class="string">"end:"</span> + System.currentTimeMillis()/<span class="number">1000</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>测试结果20个线程，每秒可以抢2.5万个，足以应付绝大部分的抢红包场景。</p>
+<p>如果是真的应付不了，拆分到几个redis集群里，或者改为批量抢红包，也足够应付。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>redis的抢红包方案，虽然在极端情况下（即redis挂掉）会丢失一秒的数据，但是却是一个扩展性很强，足以应付高并发的抢红包方案。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/redis/" rel="tag"># redis</a>
+          
+            <a href="/tags/lua/" rel="tag"># lua</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/about-xa-transaction/" rel="next" title="扯谈下XA事务">
+                <i class="fa fa-chevron-left"></i> 扯谈下XA事务
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/web-api/" rel="prev" title="Web API 版本控制的几种方式">
+                Web API 版本控制的几种方式 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#抢红包的需求分析"><span class="nav-number">1.</span> <span class="nav-text">抢红包的需求分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#基于redis的抢红包方案"><span class="nav-number">2.</span> <span class="nav-text">基于redis的抢红包方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

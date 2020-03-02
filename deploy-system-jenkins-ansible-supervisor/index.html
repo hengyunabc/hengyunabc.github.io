@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="一步一步用jenkins，ansible，supervisor打造一个web构建发布系统。 本来应该还有gitlab这一环节的，但是感觉加上，内容会增加很多。所以直接用github上的spring-mvc-showcase项目来做演示。 https://github.com/spring-projects/spring-mvc-showcase 本文的环境用docker来构建。当然也可以任意lin">
+<meta name="keywords" content="jenkins,ansible,supervisor,docker,devops,运维">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一步一步用jenkins，ansible，supervisor打造一个web构建发布系统">
+<meta property="og:url" content="http://hengyunabc.github.io/deploy-system-jenkins-ansible-supervisor/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="一步一步用jenkins，ansible，supervisor打造一个web构建发布系统。 本来应该还有gitlab这一环节的，但是感觉加上，内容会增加很多。所以直接用github上的spring-mvc-showcase项目来做演示。 https://github.com/spring-projects/spring-mvc-showcase 本文的环境用docker来构建。当然也可以任意lin">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://hengyunabc.github.io/img/jenkins-config-maven.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/jenkins-config-openjdk7.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/jenkins-new-job-maven.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/jenkins-new-job-parameters.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/jenkins-new-job-git.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/jenkins-new-job-shell-ansible.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/spring-mvc-showcase-webui.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/supervisor-webui.png">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="一步一步用jenkins，ansible，supervisor打造一个web构建发布系统">
+<meta name="twitter:description" content="一步一步用jenkins，ansible，supervisor打造一个web构建发布系统。 本来应该还有gitlab这一环节的，但是感觉加上，内容会增加很多。所以直接用github上的spring-mvc-showcase项目来做演示。 https://github.com/spring-projects/spring-mvc-showcase 本文的环境用docker来构建。当然也可以任意lin">
+<meta name="twitter:image" content="http://hengyunabc.github.io/img/jenkins-config-maven.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/deploy-system-jenkins-ansible-supervisor/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>一步一步用jenkins，ansible，supervisor打造一个web构建发布系统 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/deploy-system-jenkins-ansible-supervisor/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">一步一步用jenkins，ansible，supervisor打造一个web构建发布系统
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2015-02-12 14:55:04" itemprop="dateCreated datePublished" datetime="2015-02-12T14:55:04+00:00">2015-02-12</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>一步一步用jenkins，ansible，supervisor打造一个web构建发布系统。</p>
+<p>本来应该还有gitlab这一环节的，但是感觉加上，内容会增加很多。所以直接用github上的spring-mvc-showcase项目来做演示。</p>
+<p><a href="https://github.com/spring-projects/spring-mvc-showcase" target="_blank" rel="noopener">https://github.com/spring-projects/spring-mvc-showcase</a></p>
+<p>本文的环境用docker来构建。当然也可以任意linux环境下搭建。</p>
+<p>如果没有安装docker，可以参考官方的文档：<br><a href="https://docs.docker.com/installation/ubuntulinux/#ubuntu-trusty-1404-lts-64-bit" target="_blank" rel="noopener">https://docs.docker.com/installation/ubuntulinux/#ubuntu-trusty-1404-lts-64-bit</a> </p>
+<p>下面将要介绍的完整流程是：</p>
+<ul>
+<li>github作为源代码仓库</li>
+<li>jenkins做为打包服务器，Web控制服务器</li>
+<li>ansible把war包，发布到远程机器<ol>
+<li>安装python-pip</li>
+<li>用pip安装supervisor</li>
+<li>安装jdk</li>
+<li>下载，部署tomcat</li>
+<li>把tomcat交由supervisor托管</li>
+<li>把jenkins生成的war包发布到远程服务器上</li>
+<li>supervisor启动tomcat</li>
+<li>在http端口等待tomcat启动成功</li>
+</ol>
+</li>
+<li>supervisor托管app进程，提供一个web界面可以查看进程状态，日志，控制重启等。</li>
+</ul>
+<p>在文章的最后，会给出一个完整的docker镜像，大家可以自己运行查看实际效果。</p>
+<h2 id="安装jenkins"><a href="#安装jenkins" class="headerlink" title="安装jenkins"></a>安装jenkins</h2><ul>
+<li>先用docker来启动一个名为“jenkins”的容器：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo docker run -i -t -p 8080:8080 -p 8101:8101 -p 9001:9001 --name=<span class="string">'jenkins'</span> ubuntu /bin/bash</span><br></pre></td></tr></table></figure>
+<p>8080是jenkins的端口，8101是spring-mvc-showcase的端口，9001是supervisor的web界面端口</p>
+<p>执行完之后，会得到一个container的shell。接着在这个shell里安装其它组件。</p>
+<ul>
+<li>安装open jdk 和 git：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get update</span><br><span class="line">sudo apt-get install openjdk-7-jdk git</span><br></pre></td></tr></table></figure>
+<ul>
+<li>下载配置tomcat：</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">apt-get install wget</span><br><span class="line">mkdir /opt/jenkins</span><br><span class="line">cd /opt/jenkins</span><br><span class="line">wget http://apache.fayea.com/tomcat/tomcat-8/v8.0.18/bin/apache-tomcat-8.0.18.tar.gz</span><br><span class="line">tar xzf apache-tomcat-8.0.18.tar.gz</span><br></pre></td></tr></table></figure>
+<ul>
+<li>安装jenkins：</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/jenkins/apache-tomcat-8.0.18/webapps</span><br><span class="line">wget http://mirrors.jenkins-ci.org/war/latest/jenkins.war</span><br><span class="line">rm -rf ROOT*</span><br><span class="line">mv jenkins.war ROOT.war</span><br></pre></td></tr></table></figure>
+<ul>
+<li>启动jenkins：</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/opt/jenkins/apache-tomcat-8.0.18/bin/startup.sh</span><br></pre></td></tr></table></figure>
+<p>然后在本机用浏览器访问：<a href="http://localhost:8080/" target="_blank" rel="noopener">http://localhost:8080/</a> ，可以看到jenkins的界面了。</p>
+<h2 id="配置jenkins"><a href="#配置jenkins" class="headerlink" title="配置jenkins"></a>配置jenkins</h2><h3 id="安装git插件"><a href="#安装git插件" class="headerlink" title="安装git插件"></a>安装git插件</h3><p>安装git插件：<br><a href="https://wiki.jenkins-ci.org/display/JENKINS/Git+Plugin" target="_blank" rel="noopener">https://wiki.jenkins-ci.org/display/JENKINS/Git+Plugin</a></p>
+<p>在“系统管理”，“插件管理”，“可选插件”列表里，搜索“Git Plugin”，这样比较快可以找到。</p>
+<p>因为jenkins用google来检查网络的连通性，所以可能在开始安装插件时会卡住一段时间。</p>
+<h3 id="配置maven-java"><a href="#配置maven-java" class="headerlink" title="配置maven, java"></a>配置maven, java</h3><p>打开 <a href="http://localhost:8080/configure，" target="_blank" rel="noopener">http://localhost:8080/configure，</a><br>在jenkins的系统配置里，可以找到maven，git，java相关的配置，只要勾选了，在开时执行job时，会自动下载。<br><img src="/img/jenkins-config-maven.png" alt="jenkins-config-maven"></p>
+<p>JDK可以选择刚才安装好的openjdk，也可以选择自动安装oracle jdk。<br><img src="/img/jenkins-config-openjdk7.png" alt="jenkins-config-openjdk7"></p>
+<p>Git会自动配置好。</p>
+<h2 id="配置ssh服务"><a href="#配置ssh服务" class="headerlink" title="配置ssh服务"></a>配置ssh服务</h2><p>安装sshd服务：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get install openssh-server sshpass</span><br></pre></td></tr></table></figure></p>
+<p>编辑<br>vi /etc/ssh/sshd_config<br>把<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PermitRootLogin without-password</span><br></pre></td></tr></table></figure></p>
+<p>改为：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PermitRootLogin yes</span><br></pre></td></tr></table></figure></p>
+<p>重启ssh服务：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo /etc/init.d/ssh restart</span><br></pre></td></tr></table></figure></p>
+<p>为root用户配置密码，设置为12345：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">passwd</span><br></pre></td></tr></table></figure></p>
+<p>最后尝试登陆下：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh root@127.0.0.1</span><br></pre></td></tr></table></figure></p>
+<h2 id="安装ansible"><a href="#安装ansible" class="headerlink" title="安装ansible"></a>安装ansible</h2><p>在jenkins这个container里，继续安装ansible，用来做远程发布用。</p>
+<p>先安装pip，再用pip安装ansible：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get install python-pip python-dev build-essential git</span><br><span class="line">sudo pip install ansible</span><br></pre></td></tr></table></figure></p>
+<h2 id="配置ansible-playbook"><a href="#配置ansible-playbook" class="headerlink" title="配置ansible playbook"></a>配置ansible playbook</h2><p>把自动发布的ansible playbook clone到本地：</p>
+<p><a href="https://github.com/hengyunabc/jenkins-ansible-supervisor-deploy" target="_blank" rel="noopener">https://github.com/hengyunabc/jenkins-ansible-supervisor-deploy</a><br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /opt/ansible</span><br><span class="line"><span class="built_in">cd</span> /opt/ansible</span><br><span class="line">git <span class="built_in">clone</span> https://github.com/hengyunabc/jenkins-ansible-supervisor-deploy</span><br></pre></td></tr></table></figure></p>
+<h2 id="在jenkins上建立deploy-job"><a href="#在jenkins上建立deploy-job" class="headerlink" title="在jenkins上建立deploy job"></a>在jenkins上建立deploy job</h2><ul>
+<li>新建一个maven的项目/job，名为spring-mvc-showcase<br><img src="/img/jenkins-new-job-maven.png" alt="jenkins-new-job-maven"></li>
+</ul>
+<ul>
+<li>在配置页面里，勾选“参数化构建过程”，再依次增加“String”类型的参数</li>
+</ul>
+<p><img src="/img/jenkins-new-job-parameters.png" alt="jenkins-new-job-parameters"></p>
+<p>共有这些参数：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">app	   要发布的app的名字</span><br><span class="line">	http_port	  tomcat的http端口</span><br><span class="line">	https_port	tomcat的https端口</span><br><span class="line">	server_port	tomcat的server port</span><br><span class="line">	JAVA_OPTS	 tomcat启动的Java参数</span><br><span class="line">	deploy_path	  tomcat的目录</span><br><span class="line">	target_host	 要发布到哪台机器</span><br><span class="line">	war_path	   jenkins生成的war包的目录</span><br></pre></td></tr></table></figure></p>
+<ul>
+<li>“源码管理”，选择Git，再填入代码地址</li>
+</ul>
+<p><a href="https://github.com/spring-projects/spring-mvc-showcase.git" target="_blank" rel="noopener">https://github.com/spring-projects/spring-mvc-showcase.git</a></p>
+<p><img src="/img/jenkins-new-job-git.png" alt="jenkins-new-job-git"></p>
+<ul>
+<li>在“Post Steps”里，增加调用ansible playbook的shell命令<br><img src="/img/jenkins-new-job-shell-ansible.png" alt="jenkins-new-job-shell-ansible"></li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /opt/ansible/jenkins-ansible-supervisor-deploy</span><br><span class="line">ansible-playbook -i hosts site.yml --verbose --extra-vars <span class="string">"target_host=<span class="variable">$target_host</span> app=<span class="variable">$app</span> http_port=<span class="variable">$http_port</span> https_port=<span class="variable">$https_port</span> server_port=<span class="variable">$server_port</span> deploy_path=<span class="variable">$deploy_path</span> JAVA_HOME=/usr JAVA_OPTS=<span class="variable">$JAVA_OPTS</span> deploy_war_path=<span class="variable">$WORKSPACE</span>/<span class="variable">$war_path</span>"</span></span><br></pre></td></tr></table></figure>
+<p>最后，保存。</p>
+<h2 id="测试构建"><a href="#测试构建" class="headerlink" title="测试构建"></a>测试构建</h2><p>一切都配置好之后，可以在jenkins界面上，在左边，选择“Build with Parameters”，“开始”来构建项目了。</p>
+<p>如果构建成功的话，就可以打开 <a href="http://localhost:8101" target="_blank" rel="noopener">http://localhost:8101</a> ，就可以看到spring-mvc-showcase的界面了。</p>
+<p><img src="/img/spring-mvc-showcase-webui.png" alt="spring-mvc-showcase-webui"></p>
+<p>打开 <a href="http://localhost:9001" target="_blank" rel="noopener">http://localhost:9001</a> 可以看到superviosr的控制网页，可以查看tomcat进程的状态，重启，查看日志等。</p>
+<p><img src="/img/supervisor-webui.png" alt="supervisor-webui"></p>
+<p>如果想要发布到其它机器上的话，只要在</p>
+  <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">  /opt/ansible/jenkins-ansible-supervisor-deploy/hosts </span><br><span class="line">  ``` </span><br><span class="line">  </span><br><span class="line">文件里增加相应的host配置就可以了。</span><br><span class="line"></span><br><span class="line">## 其它的一些东东</span><br><span class="line">如果提示</span><br></pre></td></tr></table></figure>
+<p>to use the ‘ssh’ connection type with passwords, you must install the sshpass program<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">则安装：</span><br><span class="line">```bash</span><br><span class="line">sudo apt-get install sshpass</span><br></pre></td></tr></table></figure></p>
+<h2 id="演示的docker-image"><a href="#演示的docker-image" class="headerlink" title="演示的docker image"></a>演示的docker image</h2><p>如果只是想查看实际运行效果，可以直接把 hengyunabc/jenkins-ansible-supervisor 这个image拉下来，运行即可。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -it -p 8080:8080 -p 8101:8101 -p 9001:9001 --name=<span class="string">'jenkins'</span> hengyunabc/jenkins-ansible-supervisor</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>jenkins提供了丰富的插件，可以定制自己的打包这过程，并可以提供完善的权限控制</li>
+<li>ansible可以轻松实现远程部署，配置环境等工作，轻量简洁，功能强大</li>
+<li>supervisor托管了tomcat进程，提供了web控制界面，所有运行的程序一目了然，很好用</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/jenkins/" rel="tag"># jenkins</a>
+          
+            <a href="/tags/ansible/" rel="tag"># ansible</a>
+          
+            <a href="/tags/supervisor/" rel="tag"># supervisor</a>
+          
+            <a href="/tags/docker/" rel="tag"># docker</a>
+          
+            <a href="/tags/devops/" rel="tag"># devops</a>
+          
+            <a href="/tags/运维/" rel="tag"># 运维</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/about-metrics/" rel="next" title="基于dropwizard/metrics ，kafka，zabbix构建应用统计数据收集展示系统">
+                <i class="fa fa-chevron-left"></i> 基于dropwizard/metrics ，kafka，zabbix构建应用统计数据收集展示系统
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/kafka-manager-install/" rel="prev" title="kafka manager安装">
+                kafka manager安装 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#安装jenkins"><span class="nav-number">1.</span> <span class="nav-text">安装jenkins</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置jenkins"><span class="nav-number">2.</span> <span class="nav-text">配置jenkins</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#安装git插件"><span class="nav-number">2.1.</span> <span class="nav-text">安装git插件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#配置maven-java"><span class="nav-number">2.2.</span> <span class="nav-text">配置maven, java</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置ssh服务"><span class="nav-number">3.</span> <span class="nav-text">配置ssh服务</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装ansible"><span class="nav-number">4.</span> <span class="nav-text">安装ansible</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#配置ansible-playbook"><span class="nav-number">5.</span> <span class="nav-text">配置ansible playbook</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#在jenkins上建立deploy-job"><span class="nav-number">6.</span> <span class="nav-text">在jenkins上建立deploy job</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#测试构建"><span class="nav-number">7.</span> <span class="nav-text">测试构建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#演示的docker-image"><span class="nav-number">8.</span> <span class="nav-text">演示的docker image</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

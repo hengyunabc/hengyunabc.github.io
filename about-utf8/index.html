@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言本来想翻译这篇文章的（作者是utf-8编码，golang发明者之一）：  UTF-8: Bits, Bytes, and Benefits: http://research.swtch.com/utf8  一则翻译起来很痛苦，二则觉得这篇文章有些地方可能说得不是太明白，所以结合其它的一些东东扯谈下utf-8。 Unicode先扯谈下Unicode。 Unicode就是为每一个字符（各种语言的各">
+<meta name="keywords" content="java,utf8,unicode,python">
+<meta property="og:type" content="article">
+<meta property="og:title" content="扯谈下UTF-8">
+<meta property="og:url" content="http://hengyunabc.github.io/about-utf8/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言本来想翻译这篇文章的（作者是utf-8编码，golang发明者之一）：  UTF-8: Bits, Bytes, and Benefits: http://research.swtch.com/utf8  一则翻译起来很痛苦，二则觉得这篇文章有些地方可能说得不是太明白，所以结合其它的一些东东扯谈下utf-8。 Unicode先扯谈下Unicode。 Unicode就是为每一个字符（各种语言的各">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="扯谈下UTF-8">
+<meta name="twitter:description" content="前言本来想翻译这篇文章的（作者是utf-8编码，golang发明者之一）：  UTF-8: Bits, Bytes, and Benefits: http://research.swtch.com/utf8  一则翻译起来很痛苦，二则觉得这篇文章有些地方可能说得不是太明白，所以结合其它的一些东东扯谈下utf-8。 Unicode先扯谈下Unicode。 Unicode就是为每一个字符（各种语言的各">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/about-utf8/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>扯谈下UTF-8 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/about-utf8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">扯谈下UTF-8
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2012-08-28 21:58:28" itemprop="dateCreated datePublished" datetime="2012-08-28T21:58:28+00:00">2012-08-28</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本来想翻译这篇文章的（作者是utf-8编码，golang发明者之一）：</p>
+<ul>
+<li>UTF-8: Bits, Bytes, and Benefits: <a href="http://research.swtch.com/utf8" target="_blank" rel="noopener">http://research.swtch.com/utf8</a></li>
+</ul>
+<p>一则翻译起来很痛苦，二则觉得这篇文章有些地方可能说得不是太明白，所以结合其它的一些东东扯谈下utf-8。</p>
+<h2 id="Unicode"><a href="#Unicode" class="headerlink" title="Unicode"></a>Unicode</h2><p>先扯谈下Unicode。</p>
+<p>Unicode就是为每一个字符（各种语言的各种字符）分配一个数字。所以它实际上是一个表，记录了字符和数字的对应关系。</p>
+<p>比如汉字“你”，对应的数字是20320，16进制是4F60。</p>
+<p>目前Unicode的范围从 U+0000 到 U+10FFFF 。有UTF-8，UTF-16，UTF-32三种编码方式。</p>
+<p>其中UTF-8对应1到4个8-bit，UTF-16对应1到2个16-bit，UTF-32对应1个32-bit。</p>
+<p>下面这个表，很清晰地总结了各种编码方式（from: <a href="http://www.unicode.org/faq/utf_bom.html" target="_blank" rel="noopener">http://www.unicode.org/faq/utf_bom.html</a> ）：</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>UTF-8</th>
+<th>UTF-16</th>
+<th>UTF-16BE</th>
+<th>UTF-16LE</th>
+<th>UTF-32</th>
+<th>UTF-32BE</th>
+<th>UTF-32LE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Smallest code point</td>
+<td>0000</td>
+<td>0000</td>
+<td>0000</td>
+<td>0000</td>
+<td>0000</td>
+<td>0000</td>
+<td>0000</td>
+</tr>
+<tr>
+<td>Largest code point</td>
+<td>10FFFF</td>
+<td>10FFFF</td>
+<td>10FFFF</td>
+<td>10FFFF</td>
+<td>10FFFF</td>
+<td>10FFFF</td>
+<td>10FFFF</td>
+</tr>
+<tr>
+<td>Code unit size</td>
+<td>8 bits</td>
+<td>16 bits</td>
+<td>16 bits</td>
+<td>16 bits</td>
+<td>32 bits</td>
+<td>32 bits</td>
+<td>32 bits</td>
+</tr>
+<tr>
+<td>Byte order</td>
+<td>N/A</td>
+<td><code>&lt;BOM&gt;</code></td>
+<td>big-endian</td>
+<td>little-endian</td>
+<td><code>&lt;BOM&gt;</code></td>
+<td>big-endian</td>
+<td>little-endian</td>
+</tr>
+<tr>
+<td>Fewest bytes per character</td>
+<td>1</td>
+<td>2</td>
+<td>2</td>
+<td>2</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Most bytes per character</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+<td>4</td>
+</tr>
+</tbody>
+</table>
+<h2 id="历史原因"><a href="#历史原因" class="headerlink" title="历史原因"></a>历史原因</h2><p>因为历史原因，曾经人们以为用两个8-bit，可以表示任意一字符，最初的Unicode标准就是16-bit的。所以Java中的char类型，C++中的wchar_t（gcc当作32-bit），QT中的QString，windows的底层Unicode的支持，都是16-bit的，所以造成了很多悲剧。</p>
+<p>wchar_t实际上是个过时的东东，所以在C++11中增加了char16_t和char32_t类型，不过因为各家编译器的实现，标准库的实现，及语法等，实际使用还是相当相当的蛋疼。</p>
+<p>这些悲剧一是unicode标准本身很比较晚才成熟，二则C/C++一直没有把unicode支持标准化（所以QT自己搞了一套，微软自己也搞了套）。</p>
+<p>不过话说回来，这些悲剧不能全怪C++，只能说Unicode标准本身就蛋疼。据我所认识的编程语言中，只有后来比较晚出现的语言才比较好地支持unicode，比如golang，python3。</p>
+<p><a href="http://www.ruanyifeng.com/blog/2014/12/unicode.html" target="_blank" rel="noopener">http://www.ruanyifeng.com/blog/2014/12/unicode.html</a>     Unicode与JavaScript详解</p>
+<h2 id="UTF-8"><a href="#UTF-8" class="headerlink" title="UTF-8"></a>UTF-8</h2><p>上面扯远了，再回来说下UTF-8。</p>
+<h3 id="UTF-8的编码规则"><a href="#UTF-8的编码规则" class="headerlink" title="UTF-8的编码规则"></a>UTF-8的编码规则</h3><p>UTF-8的编码规则可以看阮一锋写的文章：<a href="http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html" target="_blank" rel="noopener">http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html</a></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">    Unicode符号范围 | UTF-8编码方式</span><br><span class="line">(十六进制) | （二进制）</span><br><span class="line">--------------------+---------------------------------------------</span><br><span class="line">0000 0000-0000 007F | 0xxxxxxx</span><br><span class="line">0000 0080-0000 07FF | 110xxxxx 10xxxxxx</span><br><span class="line">0000 0800-0000 FFFF | 1110xxxx 10xxxxxx 10xxxxxx</span><br><span class="line">0001 0000-0010 FFFF | 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx</span><br><span class="line">下面，还是以汉字“严”为例，演示如何实现UTF-8编码。</span><br><span class="line">已知“严”的unicode是4E25（100111000100101），根据上表，可以发现4E25处在第三行的范围内（0000 0800-0000 FFFF），因此“严”的UTF-8编码需要三个字节，即格式是“1110xxxx 10xxxxxx 10xxxxxx”。然后，从“严”的最后一个二进制位开始，依次从后向前填入格式中的x，多出的位补0。这样就得到了，“严”的UTF-8编码是“11100100 10111000 10100101”，转换成十六进制就是E4B8A5。</span><br></pre></td></tr></table></figure>
+<p>要注意的是在UTF-8编码中，非ASCII字符的编码字串中不会出现0X00，即’\0’。这个很重要，是UTF-8有很多特性的重要原因。</p>
+<h3 id="UTF-8编码的优点"><a href="#UTF-8编码的优点" class="headerlink" title="UTF-8编码的优点"></a>UTF-8编码的优点</h3><p>UTF-8的编码规则，让它有很多特性：</p>
+<ul>
+<li><p>兼容ASCII。ASCII编码的文件即同时也是UTF-8编码的文件。</p>
+</li>
+<li><p>可以从二进制数据流中识别出ASCII字符，比如有一个字节是0x7A，那么它肯定是字符’z’，因为它的最高为是0（参见上面的UTF-8的编码规则，所有的非ASCII字符的UTF-8编码的字节的最高位都是1）。</p>
+</li>
+<li><p>子串搜索可以直接按字节进行搜索，可以使用C语言原有的函数，如strchr，strstr（原因参考上面的UTF-8的编码规则）。</p>
+</li>
+<li><p>大多数处理8-bit编码文件的程序可以安全地处理utf-8文件（原因参考上一点）。</p>
+</li>
+<li><p>utf-8编码的顺序和Unicode中码位(code point)的顺序是一致的，所以像unix工具，join，ls，sort等不用显式地指明是utf-8编码。</p>
+</li>
+<li><p>utf-8编码是没有字节顺序的，UTF-8编码的文件可以不用写BOM头。</p>
+<p>  像UTF-16或者UTF-32编码的文件就要写入BOM头，否则只能猜测了。（其实，文本编辑器都是读入一段数据，再猜测到底是什么编码。mozilla有个开源程序jChardet，可以猜什么编码，但是实测并不是很准确。对于没有指定编码的网页，浏览器只好去猜测所使用的编码，像chrome浏览器有时就会猜错，貌似错误率比IE要高。）</p>
+</li>
+</ul>
+<p>update:2016-05-23<br>貌似这个库是一直更新的，可以用来检测编码，其它的都比较老了。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.ibm.icu<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>icu4j<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">version</span>&gt;</span>57.1<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p><a href="http://stackoverflow.com/questions/499010/java-how-to-determine-the-correct-charset-encoding-of-a-stream" target="_blank" rel="noopener">http://stackoverflow.com/questions/499010/java-how-to-determine-the-correct-charset-encoding-of-a-stream</a></p>
+<h3 id="utf-8编码的缺点"><a href="#utf-8编码的缺点" class="headerlink" title="utf-8编码的缺点"></a>utf-8编码的缺点</h3><ul>
+<li><p>utf-8编码是好，但是因为它是变长的！所以用一个什么类型来表示一个utf-8字符？</p>
+<p>  这个在C++中还是无解，其实在其它的编程语言中同样是无解。至于go语言，它采取了一个折中的办法，在历遍字符串时，得到的是一个rune类型（实际即int32）。<br>  另外，假定有一个大文件，你修改了一个字符，那么有可能整一个文件都有重新保存。。<br>  UTF-16编码尽管也有可能要重新保存整个文件，但是概率比较小，因为大部分常用的字符都可以用一个16-bit来表示。</p>
+</li>
+<li><p>不能实现O(1)的随机访问</p>
+<p>  所以像文本编辑器等要内部再用一个数组来记录每一个字符的位置。</p>
+</li>
+</ul>
+<p>不过，像随机访问，这样的操作是很少的。</p>
+<p>对于编程语言来说，问题不大，因为大部分编程语言中string都是不要修改的（貌似只有C++中string是可以修改的）。</p>
+<p>所以通常只有历遍操作，而历遍操作，对于UTF-8，UTF-16，UTF-32都是O(n)的时间复杂度（当然，如果较真，UTF-32编码要快一些）。</p>
+<p><strong>其实上面的缺点，同样是UTF-16编码的缺点（它也是变长的1个16-bit或者2个16-bit），UTF-16编码还有一个重要的缺点是要指明字节序。</strong></p>
+<p>UTF-32编码的缺点是要指明字节序和太浪费空间（如果全是ASCII字符，那么要浪费3倍的空间！），UTF-32编码的优点是可以O(1)实现随机访问。</p>
+<h2 id="其它的一些东东"><a href="#其它的一些东东" class="headerlink" title="其它的一些东东"></a>其它的一些东东</h2><p>受Windows API的影响，话说我以前是UTF-16党（wchar_t），但是后来发现它并不是定长的（不能用像s[i]这样的代码来访问一个字符），很伤心，慢慢改为用utf-8编码了，但是utf-8编码不能随机访问，的确也是个问题。</p>
+<p>所以现在我是“无-党-派-人-士”:) 。</p>
+<p>国外还有人专门做了个网站来推广utf-8编码：<a href="http://utf8everywhere.org/" target="_blank" rel="noopener">http://utf8everywhere.org/</a></p>
+<p>还有专门吐槽UTF-16的：<a href="http://programmers.stackexchange.com/questions/102205/should-utf-16-be-considered-harmful" target="_blank" rel="noopener">http://programmers.stackexchange.com/questions/102205/should-utf-16-be-considered-harmful</a></p>
+<h2 id="Unicode在线查询的方法"><a href="#Unicode在线查询的方法" class="headerlink" title="Unicode在线查询的方法"></a>Unicode在线查询的方法</h2><ul>
+<li><p><a href="http://en.wikipedia.org/wiki/List_of_Unicode_characters" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/List_of_Unicode_characters</a></p>
+</li>
+<li><p><a href="http://www.unicode.org/charts/" target="_blank" rel="noopener">http://www.unicode.org/charts/</a></p>
+</li>
+</ul>
+<p>4个byte的utf-8字符串的一些例子：</p>
+<p><a href="http://en.wikibooks.org/wiki/Unicode/Character_reference/1D000-1DFFF" target="_blank" rel="noopener">http://en.wikibooks.org/wiki/Unicode/Character_reference/1D000-1DFFF</a></p>
+<p>这里还有一个测试utf-8解码是否正确的测试例子：</p>
+<p><a href="http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt" target="_blank" rel="noopener">http://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt</a></p>
+<p>这里有一个Unicode编码清单，比较实用：</p>
+<p><a href="http://witmax.cn/unicode-list.html" target="_blank" rel="noopener">http://witmax.cn/unicode-list.html</a></p>
+<h2 id="python3中的unicode"><a href="#python3中的unicode" class="headerlink" title="python3中的unicode"></a>python3中的unicode</h2><p>在python3中，字符串就是Unicode字符串。在CPython的代码中可以看到，对UTF-8，UTF-16，UTF-32都实现了支持。在创建一个字符串时（比如，解析“print(‘abc中国’)”语句，在cmd窗口下，’abc中国’的编码通常是cp936，即gbk编码），如果是UTF-16或者UTF-32编码，则直接创建一个对应的字符串对象即可。如果是其它编码，则先转换为UTF-8编码，再创建一个字符串对象。</p>
+<h2 id="java里如何处理大于U-FFFF（即4byte的UTF-16编码）的字符"><a href="#java里如何处理大于U-FFFF（即4byte的UTF-16编码）的字符" class="headerlink" title="java里如何处理大于U+FFFF（即4byte的UTF-16编码）的字符"></a>java里如何处理大于U+FFFF（即4byte的UTF-16编码）的字符</h2><p>java里用char来表示一个字符，但是char却不能表示大于U+FFFF的字符，因为char只有两个byte。上面说了java出现时unicode标准还没有成熟，所以这是一个历史遗留问题。</p>
+<p>那么如何在java里表示和处理大于U+FFFF的字符？参考这里：</p>
+<p><a href="http://stackoverflow.com/questions/9834964/char-to-unicode-more-than-uffff-in-java" target="_blank" rel="noopener">http://stackoverflow.com/questions/9834964/char-to-unicode-more-than-uffff-in-java</a></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// This represents U+10FFFF</span></span><br><span class="line">String x = <span class="string">"\udbff\udfff"</span>;</span><br></pre></td></tr></table></figure>
+<p>或者</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">String y = <span class="keyword">new</span> StringBuilder().appendCodePoint(<span class="number">0x10ffff</span>).toString();</span><br></pre></td></tr></table></figure>
+<p>还提供了一些函数来处理，更多的可以直接参考String类的注释。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">||System.out.println(y);</span><br><span class="line">||System.out.println(<span class="string">"codePoint:"</span> + y.codePointAt(<span class="number">0</span>));</span><br><span class="line">||System.out.println(<span class="string">"codePoint len:"</span> + y.codePointCount(<span class="number">0</span>, y.length()));</span><br></pre></td></tr></table></figure>
+<p>update: 2017-4-26</p>
+<p>JDK里处理utf8编码的代码：<a href="http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/8u40-b25/sun/nio/cs/UTF_8.java?av=f#285" target="_blank" rel="noopener">http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/8u40-b25/sun/nio/cs/UTF_8.java?av=f#285</a></p>
+<p>JDK里默认的序列化是如何处理编码的：</p>
+<p><code>java.io.ObjectOutputStream.BlockDataOutputStream.writeUTFBody(String)</code></p>
+<p>因为jdk里的String都是utf-16的编码，在这里jdk的序列化做了一点压缩的处理。对于两个char（四个字节）的字符，压缩为3个字节来表示。</p>
+<p>hessian里的字符是utf8编码的。参考 <a href="http://hessian.caucho.com/doc/hessian-serialization.html" target="_blank" rel="noopener">http://hessian.caucho.com/doc/hessian-serialization.html</a></p>
+<p>在实现里，可以做一个优化。用unsafe 读出一个long，然后判断是不是全是ansi字符，这样子可以加快速度。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// fast path for ASCII</span></span><br><span class="line"><span class="keyword">int</span> numLongs = toRead &gt;&gt; <span class="number">3</span>;</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">int</span> i =<span class="number">0</span>; i &lt; numLongs; i++) &#123;</span><br><span class="line">  <span class="keyword">long</span> currentOffset = baseOffset + _offset;</span><br><span class="line">  <span class="keyword">long</span> test = unsafe.getLong(_buffer, currentOffset);</span><br><span class="line">  <span class="keyword">if</span> ((test &amp; <span class="number">0x8080808080808080L</span>) == <span class="number">0L</span>) &#123;</span><br><span class="line">    _chunkLength-=<span class="number">8</span>;</span><br><span class="line">    toRead -= <span class="number">8</span>;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">8</span>; j++) &#123;</span><br><span class="line">      _sbuf.append((<span class="keyword">char</span>)(_buffer[_offset++]));</span><br><span class="line">    &#125;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">break</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>鉴于UTF-8编码有这么多优点，UTF-8编码会越来越流行。据google的统计数据，超过50%的网页，是utf-8编码。很多工具默认编码都是UTF-8的，比如python3的解析器，GCC。</p>
+<p>通常来说UTF-8编码是优先选择，不过，如果是一些特殊应用，要用到O(1)的随机访问字符串，应该使用UTF-32编码。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><p>UTF-8: Bits, Bytes, and Benefits <a href="http://research.swtch.com/utf8" target="_blank" rel="noopener">http://research.swtch.com/utf8</a></p>
+</li>
+<li><p><a href="http://www.unicode.org" target="_blank" rel="noopener">http://www.unicode.org</a></p>
+</li>
+<li><p>UTF-8, UTF-16, UTF-32 &amp; BOM <a href="http://www.unicode.org/faq/utf_bom.html" target="_blank" rel="noopener">http://www.unicode.org/faq/utf_bom.html</a></p>
+</li>
+<li><p>字符编码笔记：ASCII，Unicode和UTF-8 <a href="http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html" target="_blank" rel="noopener">http://www.ruanyifeng.com/blog/2007/10/ascii_unicode_and_utf-8.html</a> </p>
+</li>
+<li><p>The Go Programming Language Specification <a href="http://golang.org/ref/spec" target="_blank" rel="noopener">http://golang.org/ref/spec</a></p>
+</li>
+<li><p>微软的Unicode的一个文档： <a href="http://msdn.microsoft.com/en-us/goglobal/bb688113.aspx" target="_blank" rel="noopener">http://msdn.microsoft.com/en-us/goglobal/bb688113.aspx</a>  </p>
+</li>
+<li><p>其实你并不懂 Unicode： <a href="https://zhuanlan.zhihu.com/p/53714077" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/p/53714077</a> </p>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/utf8/" rel="tag"># utf8</a>
+          
+            <a href="/tags/unicode/" rel="tag"># unicode</a>
+          
+            <a href="/tags/python/" rel="tag"># python</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/cpp-boost-bind/" rel="next" title="详细解析boost中bind的实现">
+                <i class="fa fa-chevron-left"></i> 详细解析boost中bind的实现
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/java-exception/" rel="prev" title="Java中异常Exception的实现的一些分析">
+                Java中异常Exception的实现的一些分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Unicode"><span class="nav-number">2.</span> <span class="nav-text">Unicode</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#历史原因"><span class="nav-number">3.</span> <span class="nav-text">历史原因</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#UTF-8"><span class="nav-number">4.</span> <span class="nav-text">UTF-8</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#UTF-8的编码规则"><span class="nav-number">4.1.</span> <span class="nav-text">UTF-8的编码规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#UTF-8编码的优点"><span class="nav-number">4.2.</span> <span class="nav-text">UTF-8编码的优点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#utf-8编码的缺点"><span class="nav-number">4.3.</span> <span class="nav-text">utf-8编码的缺点</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其它的一些东东"><span class="nav-number">5.</span> <span class="nav-text">其它的一些东东</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Unicode在线查询的方法"><span class="nav-number">6.</span> <span class="nav-text">Unicode在线查询的方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#python3中的unicode"><span class="nav-number">7.</span> <span class="nav-text">python3中的unicode</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#java里如何处理大于U-FFFF（即4byte的UTF-16编码）的字符"><span class="nav-number">8.</span> <span class="nav-text">java里如何处理大于U+FFFF（即4byte的UTF-16编码）的字符</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">10.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

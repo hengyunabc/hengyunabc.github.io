@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="这里最后redis生成ID的文章已经过时，新的请参考： http://blog.csdn.net/hengyunabc/article/details/44244951 前言数据在分片时，典型的是分库分表，就有一个全局ID生成的问题。单纯的生成全局ID并不是什么难题，但是生成的ID通常要满足分片的一些要求：  不能有单点故障。 以时间为序，或者ID里包含时间。这样一是可以少一个索引，二是冷热数据容">
+<meta name="keywords" content="redis,sharding">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分片(Sharding)的全局ID生成">
+<meta property="og:url" content="http://hengyunabc.github.io/sharding-id/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="这里最后redis生成ID的文章已经过时，新的请参考： http://blog.csdn.net/hengyunabc/article/details/44244951 前言数据在分片时，典型的是分库分表，就有一个全局ID生成的问题。单纯的生成全局ID并不是什么难题，但是生成的ID通常要满足分片的一些要求：  不能有单点故障。 以时间为序，或者ID里包含时间。这样一是可以少一个索引，二是冷热数据容">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="分片(Sharding)的全局ID生成">
+<meta name="twitter:description" content="这里最后redis生成ID的文章已经过时，新的请参考： http://blog.csdn.net/hengyunabc/article/details/44244951 前言数据在分片时，典型的是分库分表，就有一个全局ID生成的问题。单纯的生成全局ID并不是什么难题，但是生成的ID通常要满足分片的一些要求：  不能有单点故障。 以时间为序，或者ID里包含时间。这样一是可以少一个索引，二是冷热数据容">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/sharding-id/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>分片(Sharding)的全局ID生成 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/sharding-id/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">分片(Sharding)的全局ID生成
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2014-02-16 16:58:28" itemprop="dateCreated datePublished" datetime="2014-02-16T16:58:28+00:00">2014-02-16</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>这里最后redis生成ID的文章已经过时，新的请参考： <a href="http://blog.csdn.net/hengyunabc/article/details/44244951" target="_blank" rel="noopener">http://blog.csdn.net/hengyunabc/article/details/44244951</a></p>
+<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>数据在分片时，典型的是分库分表，就有一个全局ID生成的问题。单纯的生成全局ID并不是什么难题，但是生成的ID通常要满足分片的一些要求：</p>
+<ul>
+<li>不能有单点故障。</li>
+<li>以时间为序，或者ID里包含时间。这样一是可以少一个索引，二是冷热数据容易分离。</li>
+<li>可以控制ShardingId。比如某一个用户的文章要放在同一个分片内，这样查询效率高，修改也容易。</li>
+<li>不要太长，最好64bit。使用long比较好操作，如果是96bit，那就要各种移位相当的不方便，还有可能有些组件不能支持这么大的ID。</li>
+</ul>
+<p>先来看看老外的做法，以时间顺序：</p>
+<h2 id="flickr"><a href="#flickr" class="headerlink" title="flickr"></a>flickr</h2><p>flickr巧妙地使用了mysql的自增ID，及replace into语法，十分简洁地实现了分片ID生成功能。</p>
+<p>首先，创建一个表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`Tickets64`</span> (</span><br><span class="line">  <span class="string">`id`</span> <span class="built_in">bigint</span>(<span class="number">20</span>) <span class="keyword">unsigned</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> auto_increment,</span><br><span class="line">  <span class="string">`stub`</span> <span class="built_in">char</span>(<span class="number">1</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">default</span> <span class="string">''</span>,</span><br><span class="line">  PRIMARY <span class="keyword">KEY</span>  (<span class="string">`id`</span>),</span><br><span class="line">  <span class="keyword">UNIQUE</span> <span class="keyword">KEY</span> <span class="string">`stub`</span> (<span class="string">`stub`</span>)</span><br><span class="line">) <span class="keyword">ENGINE</span>=MyISAM</span><br></pre></td></tr></table></figure>
+<p>使用上面的sql可以得到一个ID：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">REPLACE</span> <span class="keyword">INTO</span> Tickets64 (stub) <span class="keyword">VALUES</span> (<span class="string">'a'</span>);</span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">LAST_INSERT_ID</span>();</span><br></pre></td></tr></table></figure>
+<p>因为使用了replace into的语法，实际上，Tickets64这个表里的数据永远都是这样的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">+-------------------+------+</span><br><span class="line">| id                | stub |</span><br><span class="line">+-------------------+------+</span><br><span class="line">| 72157623227190423 |    a |</span><br><span class="line">+-------------------+------+</span><br></pre></td></tr></table></figure>
+<p>那么如何解决单点故障呢？<br>很简单，利用mysql的自增ID即可。比如有两台ID生成服务器，设置成下面即可：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">TicketServer1:</span><br><span class="line">auto-increment-increment = 2</span><br><span class="line">auto-increment-offset = 1</span><br><span class="line"> </span><br><span class="line">TicketServer2:</span><br><span class="line">auto-increment-increment = 2</span><br><span class="line">auto-increment-offset = 2</span><br></pre></td></tr></table></figure>
+<p>优点：</p>
+<ul>
+<li>简单可靠。</li>
+</ul>
+<p>缺点：</p>
+<ul>
+<li>ID只是一个ID，没有带入时间，shardingId等信息。</li>
+</ul>
+<h2 id="twitter"><a href="#twitter" class="headerlink" title="twitter"></a>twitter</h2><p>twitter利用zookeeper实现了一个全局ID生成的服务snowflake，<a href="https://github.com/twitter/snowflake，可以生成全局唯一的64bit" target="_blank" rel="noopener">https://github.com/twitter/snowflake，可以生成全局唯一的64bit</a> ID。</p>
+<p>生成的ID的构成：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">时间--用前面41 bit来表示时间，精确到毫秒，可以表示69年的数据</span><br><span class="line">机器ID--用10 bit来表示，也就是说可以部署1024台机器</span><br><span class="line">序列数--用12 bit来表示，意味着每台机器，每毫秒最多可以生成4096个ID</span><br></pre></td></tr></table></figure>
+<p>优点：</p>
+<ul>
+<li>充分把信息保存到ID里。</li>
+</ul>
+<p>缺点：</p>
+<ul>
+<li>结构略复杂，要依赖zookeeper。</li>
+<li>分片ID不能灵活生成。</li>
+</ul>
+<h2 id="instagram"><a href="#instagram" class="headerlink" title="instagram"></a>instagram</h2><p>instagram参考了flickr的方案，再结合twitter的经验，利用Postgres数据库的特性，实现了一个更简单可靠的ID生成服务。</p>
+<p>instagram是这样设计它们的ID的：</p>
+<ul>
+<li>使用41 bit来存放时间，精确到毫秒，可以使用41年。</li>
+<li>使用13 bit来存放逻辑分片ID。</li>
+<li>使用10 bit来存放自增长ID，意味着每台机器，每毫秒最多可以生成1024个ID</li>
+</ul>
+<p>以instagram举的例子为说明：</p>
+<p>假定时间是September 9th, 2011, at 5:00pm，则毫秒数是1387263000（直接使用系统得到的从1970年开始的毫秒数）。那么先把时间数据放到ID里：</p>
+<p><code>id = 1387263000 &lt;&lt; (64-41)</code></p>
+<p>再把分片ID放到时间里，假定用户ID是31341，有2000个逻辑分片，则分片ID是31341 % 2000 -&gt; 1341：</p>
+<p><code>id |= 1341 &lt;&lt; (64-41-13)</code></p>
+<p>最后，把自增序列放ID里，假定前一个序列是5000,则新的序列是5001：</p>
+<p><code>id |= (5001 % 1024)</code></p>
+<p>这样就得到了一个全局的分片ID。</p>
+<p>下面列出instagram使用的Postgres schema的sql：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">REATE OR <span class="keyword">REPLACE</span> <span class="keyword">FUNCTION</span> insta5.next_id(<span class="keyword">OUT</span> <span class="keyword">result</span> <span class="built_in">bigint</span>) <span class="keyword">AS</span> $$</span><br><span class="line"><span class="keyword">DECLARE</span></span><br><span class="line">    our_epoch <span class="built_in">bigint</span> := <span class="number">1314220021721</span>;</span><br><span class="line">    seq_id bigint;</span><br><span class="line">    now_millis bigint;</span><br><span class="line">    shard_id int := 5;</span><br><span class="line"><span class="keyword">BEGIN</span></span><br><span class="line">    <span class="keyword">SELECT</span> <span class="keyword">nextval</span>(<span class="string">'insta5.table_id_seq'</span>) %% <span class="number">1024</span> <span class="keyword">INTO</span> seq_id;</span><br><span class="line"> </span><br><span class="line">    <span class="keyword">SELECT</span> <span class="keyword">FLOOR</span>(<span class="keyword">EXTRACT</span>(EPOCH <span class="keyword">FROM</span> clock_timestamp()) * <span class="number">1000</span>) <span class="keyword">INTO</span> now_millis;</span><br><span class="line">    result := (now_millis - our_epoch) &lt;&lt; 23;</span><br><span class="line">    result := result | (shard_id &lt;&lt; 10);</span><br><span class="line">    result := result | (seq_id);</span><br><span class="line"><span class="keyword">END</span>;</span><br><span class="line">$$ LANGUAGE PLPGSQL;</span><br></pre></td></tr></table></figure>
+<p>则在插入新数据时，直接用类似下面的SQL即可（连请求生成ID的步骤都省略了！）：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> insta5.our_table (</span><br><span class="line">    <span class="string">"id"</span> <span class="built_in">bigint</span> <span class="keyword">NOT</span> <span class="literal">NULL</span> <span class="keyword">DEFAULT</span> insta5.next_id(),</span><br><span class="line">    ...rest <span class="keyword">of</span> <span class="keyword">table</span> schema...</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>即使是不懂Postgres数据库，也能从上面的SQL看出个大概。把这个移植到mysql上应该也不是什么难事。</p>
+<p>缺点：</p>
+<ul>
+<li>貌似真的没啥缺点。</li>
+</ul>
+<p>优点：</p>
+<ul>
+<li><p>充分把信息保存到ID里。</p>
+</li>
+<li><p>充分利用数据库自身的机制，程序完全不用额外处理，直接插入到对应的分片的表即可。</p>
+</li>
+</ul>
+<h2 id="使用redis的方案"><a href="#使用redis的方案" class="headerlink" title="使用redis的方案"></a>使用redis的方案</h2><p>站在前人的肩膀上，我想到了一个利用redis + lua的方案。</p>
+<p>首先，lua内置的时间函数不能精确到毫秒，因此先要修改下redis的代码，增加currentMiliseconds函数，我偷懒，直接加到math模块里了。</p>
+<p>修改redis代码下的scripting.c文件，加入下面的内容：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/time.h&gt;</span></span></span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">redis_math_currentMiliseconds</span> <span class="params">(lua_State *L)</span></span>;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">scriptingInit</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    lua_pushstring(lua,<span class="string">"currentMiliseconds"</span>);</span><br><span class="line">    lua_pushcfunction(lua,redis_math_currentMiliseconds);</span><br><span class="line">    lua_settable(lua,<span class="number">-3</span>);</span><br><span class="line"> </span><br><span class="line">    lua_setglobal(lua,<span class="string">"math"</span>);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">redis_math_currentMiliseconds</span><span class="params">(lua_State *L)</span> </span>&#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">timeval</span> <span class="title">now</span>;</span></span><br><span class="line">    gettimeofday(&amp;now, <span class="literal">NULL</span>);</span><br><span class="line">    lua_pushnumber(L, now.tv_sec*<span class="number">1000</span> + now.tv_usec/<span class="number">1000</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个方案直接返回三元组（时间，分片ID，增长序列），当然Lua脚本是非常灵活的，可以自己随意修改。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">时间：redis服务器上的毫秒数</span><br><span class="line">分片ID：由传递进来的参数KEYS[1]%1024得到。</span><br><span class="line">增长序列：由redis上&quot;idgenerator_next_&quot; 为前缀，接分片ID的Key用incrby命令得到。</span><br></pre></td></tr></table></figure>
+<p>例如，用户发一个文章，要生成一个文章ID，假定用户ID是14532，则</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">time &lt;-- math.currentMiliseconds();</span><br><span class="line">shardindId  &lt;-- 14532 % 1024;     //即196</span><br><span class="line">articleId &lt;-- incrby idgenerator_next_196 1  //1是增长的步长</span><br></pre></td></tr></table></figure>
+<p>用lua脚本表示是：</p>
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">local</span> step = redis.call(<span class="string">'GET'</span>, <span class="string">'idgenerator_step'</span>);</span><br><span class="line"><span class="keyword">local</span> shardId = KEYS[<span class="number">1</span>] % <span class="number">1024</span>;</span><br><span class="line"><span class="keyword">local</span> <span class="built_in">next</span> = redis.call(<span class="string">'INCRBY'</span>, <span class="string">'idgenerator_next_'</span> .. shardId, step);</span><br><span class="line"><span class="keyword">return</span> &#123;<span class="built_in">math</span>.currentMiliseconds(), shardId, <span class="built_in">next</span>&#125;;</span><br></pre></td></tr></table></figure>
+<p>“idgenerator_step”这个key用来存放增长的步长。<br>客户端用eval执行上面的脚本，得到三元组之后，可以自由组合成64bit的全局ID。</p>
+<p><strong>上面只是一个服务器，那么如何解决单点问题呢？</strong></p>
+<p>上面的“idgenerator_step”的作用就体现出来了。</p>
+<p>比如，要部署三台redis做为ID生成服务器，分别是A,B,C。那么在启动时设置redis-A下面的键值：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">idgenerator_step = 3</span><br><span class="line">idgenerator_next_1, idgenerator_next_2, idgenerator_next_3 ... idgenerator_next_1024 = 1</span><br></pre></td></tr></table></figure>
+<p>设置redis-B下面的键值：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">idgenerator_step = 3</span><br><span class="line">idgenerator_next_1, idgenerator_next_2, idgenerator_next_3 ... idgenerator_next_1024 = 2</span><br></pre></td></tr></table></figure>
+<p>设置redis-C下面的键值：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">idgenerator_step = 3</span><br><span class="line">idgenerator_next_1, idgenerator_next_2, idgenerator_next_3 ... idgenerator_next_1024 = 3</span><br></pre></td></tr></table></figure>
+<p>那么上面三台ID生成服务器之间就是完全独立的，而且平等关系的。任意一台服务器挂掉都不影响，客户端只要随机选择一台去用eval命令得到三元组即可。</p>
+<p>我测试了下单台的redis服务器每秒可以生成3万个ID。那么部署三台ID服务器足以支持任何的应用了。</p>
+<p>测试程序见这里：</p>
+<p><a href="https://gist.github.com/hengyunabc/9032295" target="_blank" rel="noopener">https://gist.github.com/hengyunabc/9032295</a></p>
+<p>缺点：</p>
+<ul>
+<li>如果不熟悉lua脚本，可能定制自己的ID规则等比较麻烦。</li>
+<li>注意机器时间不能设置为自动同步的，否则可能会因为时间同步，而导致ID重复了。</li>
+</ul>
+<p>优点：</p>
+<ul>
+<li>非常的快，而且可以线性部署。</li>
+<li>可以随意定制自己的Lua脚本，生成各种业务的ID。</li>
+</ul>
+<h2 id="其它的东东"><a href="#其它的东东" class="headerlink" title="其它的东东"></a>其它的东东</h2><p>MongoDB的Objectid，这个实在是太长了要12个字节：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ObjectId is a 12-byte BSON type, constructed using:</span><br><span class="line"> </span><br><span class="line">a 4-byte value representing the seconds since the Unix epoch,</span><br><span class="line">a 3-byte machine identifier,</span><br><span class="line">a 2-byte process id, and</span><br><span class="line">a 3-byte counter, starting with a random value.</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>生成全局ID并不很难实现的东东，不过从各个网络的做法，及演进还是可以学到很多东东。有时候一些简单现成的组件就可以解决问题，只是缺少思路而已。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="http://code.flickr.net/2010/02/08/ticket-servers-distributed-unique-primary-keys-on-the-cheap/" target="_blank" rel="noopener">http://code.flickr.net/2010/02/08/ticket-servers-distributed-unique-primary-keys-on-the-cheap/</a></li>
+<li><a href="http://instagram-engineering.tumblr.com/post/10853187575/sharding-ids-at-instagram" target="_blank" rel="noopener">http://instagram-engineering.tumblr.com/post/10853187575/sharding-ids-at-instagram</a></li>
+<li><a href="https://github.com/twitter/snowflake/" target="_blank" rel="noopener">https://github.com/twitter/snowflake/</a></li>
+<li><a href="http://docs.mongodb.org/manual/reference/object-id/" target="_blank" rel="noopener">http://docs.mongodb.org/manual/reference/object-id/</a></li>
+<li><a href="http://www.redisdoc.com/en/latest/script/eval.html" target="_blank" rel="noopener">http://www.redisdoc.com/en/latest/script/eval.html</a>       redis脚本参考</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/redis/" rel="tag"># redis</a>
+          
+            <a href="/tags/sharding/" rel="tag"># sharding</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/about-hazelcast/" rel="next" title="hazelcast的坑爹事">
+                <i class="fa fa-chevron-left"></i> hazelcast的坑爹事
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/about-xa-transaction/" rel="prev" title="扯谈下XA事务">
+                扯谈下XA事务 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#flickr"><span class="nav-number">2.</span> <span class="nav-text">flickr</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#twitter"><span class="nav-number">3.</span> <span class="nav-text">twitter</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#instagram"><span class="nav-number">4.</span> <span class="nav-text">instagram</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用redis的方案"><span class="nav-number">5.</span> <span class="nav-text">使用redis的方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其它的东东"><span class="nav-number">6.</span> <span class="nav-text">其它的东东</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">8.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

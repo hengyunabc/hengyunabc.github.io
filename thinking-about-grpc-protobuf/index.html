@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="背景谈到RPC，就避免不了序列化的话题。 gRPC默认的序列化方式是protobuf，原因很简单，因为两者都是google发明的，哈哈。 在当初Google开源protobuf时，很多人就期待是否能把RPC的实现也一起开源出来。没想到最终出来的是gRPC，终于补全了这一块。 跨语言的序列化方案事实上的跨语言序列化方案只有三个： protobuf, thrift, json。  json体积太大，并">
+<meta name="keywords" content="security,rpc,http2,grpc,protobuf">
+<meta property="og:type" content="article">
+<meta property="og:title" content="思考gRPC ：为什么是protobuf">
+<meta property="og:url" content="http://hengyunabc.github.io/thinking-about-grpc-protobuf/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="背景谈到RPC，就避免不了序列化的话题。 gRPC默认的序列化方式是protobuf，原因很简单，因为两者都是google发明的，哈哈。 在当初Google开源protobuf时，很多人就期待是否能把RPC的实现也一起开源出来。没想到最终出来的是gRPC，终于补全了这一块。 跨语言的序列化方案事实上的跨语言序列化方案只有三个： protobuf, thrift, json。  json体积太大，并">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="思考gRPC ：为什么是protobuf">
+<meta name="twitter:description" content="背景谈到RPC，就避免不了序列化的话题。 gRPC默认的序列化方式是protobuf，原因很简单，因为两者都是google发明的，哈哈。 在当初Google开源protobuf时，很多人就期待是否能把RPC的实现也一起开源出来。没想到最终出来的是gRPC，终于补全了这一块。 跨语言的序列化方案事实上的跨语言序列化方案只有三个： protobuf, thrift, json。  json体积太大，并">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/thinking-about-grpc-protobuf/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>思考gRPC ：为什么是protobuf | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/thinking-about-grpc-protobuf/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">思考gRPC ：为什么是protobuf
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-07-17 20:03:54" itemprop="dateCreated datePublished" datetime="2018-07-17T20:03:54+00:00">2018-07-17</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>谈到RPC，就避免不了序列化的话题。</p>
+<p>gRPC默认的序列化方式是protobuf，原因很简单，因为两者都是google发明的，哈哈。</p>
+<p>在当初Google开源protobuf时，很多人就期待是否能把RPC的实现也一起开源出来。没想到最终出来的是gRPC，终于补全了这一块。</p>
+<h2 id="跨语言的序列化方案"><a href="#跨语言的序列化方案" class="headerlink" title="跨语言的序列化方案"></a>跨语言的序列化方案</h2><p>事实上的跨语言序列化方案只有三个： protobuf, thrift, json。</p>
+<ul>
+<li>json体积太大，并且缺少类型信息，实际上只用在RESTful接口上，并没有看到RPC框架会默认选json做序列化的。</li>
+</ul>
+<p>国内一些大公司的使用情况：</p>
+<ul>
+<li><p>protobuf ，腾迅，百度等</p>
+</li>
+<li><p>thrift，小米，美团等</p>
+</li>
+<li><p>hessian， 阿里用的是自己维护的版本，有js/cpp的实现，因为阿里主用java，更多是历史原因。</p>
+</li>
+</ul>
+<h3 id="序列化里的类型信息"><a href="#序列化里的类型信息" class="headerlink" title="序列化里的类型信息"></a>序列化里的类型信息</h3><p>序列化就是把对象转换为二进制数据，反序列化就把二进制数据转换为对象。</p>
+<p>各种序列化库层出不穷，其中有一个重要的区别：<strong>类型信息存放在哪</strong>？ </p>
+<p>可以分为三种：</p>
+<ol>
+<li><p>不保存类型信息</p>
+<p> 典型的是各种json序列化库，优点是灵活，缺点是使用的双方都要知道类型是什么。当然有一些json库会提供一些扩展，偷偷把类型信息插入到json里。</p>
+</li>
+<li><p>类型信息保存到序列化结果里</p>
+<p> 比如java自带的序列化，hessian等。缺点是类型信息冗余。比如RPC里每一个request都要带上类型。因此有一种常见的RPC优化手段就是两端协商之后，后续的请求不需要再带上类型信息。</p>
+</li>
+<li><p>在生成代码里带上类型信息</p>
+<p> 通常是在IDL文件里写好package和类名，生成的代码直接就有了类型信息。比如protobuf, thrift。缺点是需要生成代码，双方都要知道IDL文件。</p>
+</li>
+</ol>
+<p>类型信息看起来是一个小事，但在安全上却会出大问题，后面会讨论。</p>
+<h2 id="实际使用中序列化有哪些问题"><a href="#实际使用中序列化有哪些问题" class="headerlink" title="实际使用中序列化有哪些问题"></a>实际使用中序列化有哪些问题</h2><p>这里讨论的是没有IDL定义的序列化方案，比如java自带的序列化，hessian, 各种json库。</p>
+<ul>
+<li>大小莫名增加，比如用户不小心向map里put了大对象。</li>
+<li>对象之间互相引用，用户根本不清楚序列化到底会产生什么结果，可能新加一个field就不小心被序列化了</li>
+<li>enum类新增加的不能识别，当两端的类版本不一致时就会出错</li>
+<li>哪些字段应该跳过序列化 ，不同的库都有不同的 @Ignore ，没有通用的方案</li>
+<li>很容易把一些奇怪的类传过来，然后对端报ClassNotFoundException</li>
+<li>新版本jdk新增加的类不支持，需要序列化库不断升级，如果没人维护就悲剧了</li>
+<li>库本身的代码质量不高，或者API设计不好容易出错，比如<a href="https://blog.csdn.net/hengyunabc/article/details/7764509" target="_blank" rel="noopener">kryo</a></li>
+</ul>
+<h3 id="gRPC是protobuf的一个插件"><a href="#gRPC是protobuf的一个插件" class="headerlink" title="gRPC是protobuf的一个插件"></a>gRPC是protobuf的一个插件</h3><p>以gRPC官方的Demo为例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> helloworld;</span><br><span class="line"></span><br><span class="line"><span class="comment">// The greeting service definition.</span></span><br><span class="line">service Greeter &#123;</span><br><span class="line">  <span class="comment">// Sends a greeting</span></span><br><span class="line">  <span class="function">rpc <span class="title">SayHello</span> <span class="params">(HelloRequest)</span> <span class="title">returns</span> <span class="params">(HelloReply)</span> </span>&#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// The request message containing the user's name.</span></span><br><span class="line">message HelloRequest &#123;</span><br><span class="line">  string name = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// The response message containing the greetings</span></span><br><span class="line">message HelloReply &#123;</span><br><span class="line">  string message = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到rpc的定义也是写在proto文件里的。实际上gRPC是protobuf的一个扩展，通过扩展生成gRPC相关的代码。</p>
+<h2 id="protobuf并不是完美解决方案"><a href="#protobuf并不是完美解决方案" class="headerlink" title="protobuf并不是完美解决方案"></a>protobuf并不是完美解决方案</h2><p>在protobuf出来以后，也不断出现新的方案。比如 </p>
+<ul>
+<li><a href="https://github.com/capnproto/capnproto" target="_blank" rel="noopener">https://github.com/capnproto/capnproto</a></li>
+<li><a href="https://github.com/google/flatbuffers" target="_blank" rel="noopener">https://github.com/google/flatbuffers</a></li>
+<li><a href="https://avro.apache.org/" target="_blank" rel="noopener">https://avro.apache.org/</a></li>
+</ul>
+<p>protobuf的一些缺点：</p>
+<ul>
+<li>缺少map/set的支持(proto3支持map)</li>
+<li><a href="https://developers.google.com/protocol-buffers/docs/encoding" target="_blank" rel="noopener">Varint</a>编码会消耗CPU</li>
+<li>会影响CPU缓存，比如比较大的int32从4字节用Varint表示是5字节就不对齐了</li>
+<li><p>解码时要复制一份内存，不能做原地内存引用的优化</p>
+<p>  protobuf在google 2008年公开的，内部使用自然更早。当时带宽还比较昂贵，现在人们对速度的关注胜过带宽了。</p>
+</li>
+</ul>
+<p>protobuf需要生成代码的确有点麻烦，所以会有基于java annotation的方案：</p>
+<ul>
+<li><a href="https://github.com/protostuff/protostuff" target="_blank" rel="noopener">https://github.com/protostuff/protostuff</a></li>
+</ul>
+<p>同样thrift有：</p>
+<ul>
+<li><a href="https://github.com/facebookarchive/swift" target="_blank" rel="noopener">https://github.com/facebookarchive/swift</a></li>
+</ul>
+<h2 id="序列化库的速度问题"><a href="#序列化库的速度问题" class="headerlink" title="序列化库的速度问题"></a>序列化库的速度问题</h2><p>总有序列化库跳出来说自己速度最快，其实很多时候猫腻很多。事有反常必有妖。</p>
+<p>常见的加快速度的手段有：</p>
+<ul>
+<li><p>threadlocal的byte array</p>
+<p>  当序列化一个大对象后，threadlocal的byte array增大，然后不能及时释放。如果线程池越大，则占用的内存会越多。fastjson采用一种动态缩小的处理办法，但不能从根本解决这个问题。</p>
+</li>
+<li><p>用asm的方式生成代码，避免反射调用getter/setter</p>
+<p>  这样会导致库代码复杂，容易有bug，并且会占用内存。</p>
+</li>
+<li><p>循环引用用ID标识对象</p>
+<p>  kryo要求注册类型的顺序是统一的，因为它要为类型分配ID，然后在处理循环引用时，把同样的对象直接用ID来标识，这样子可以大大减少体积。<br>  但是用户在使用时，调用代码的顺序可能是不确定的，注册上去的ID也可能不一样，那么反序列化就会有问题。<br>  kryo的API还不是线程安全的，很容易踩坑。</p>
+</li>
+</ul>
+<p>在benchmark里protobuf的速度在前列，并不是最快。但是protobuf用生成代码的方式保证了内存占用，时间占用不会出问题。</p>
+<h2 id="序列化被人忽视的安全性问题"><a href="#序列化被人忽视的安全性问题" class="headerlink" title="序列化被人忽视的安全性问题"></a>序列化被人忽视的安全性问题</h2><h3 id="序列化漏洞危害很大"><a href="#序列化漏洞危害很大" class="headerlink" title="序列化漏洞危害很大"></a>序列化漏洞危害很大</h3><ol>
+<li>序列化漏洞通常比较严重，容易造成任意代码执行</li>
+<li>序列化漏洞在很多语言里都会有，比如Python Pickle序列化漏洞。</li>
+</ol>
+<p>很多程序员不理解为什么反序列化可以造成任意代码执行。</p>
+<p>反序列化漏洞到底是怎么工作的呢？很难直接描述清楚，这些漏洞都有很精巧的设计，把多个地方的代码串联起来。可以参考这个demo，跑起来调试下就可以有直观的印象：</p>
+<ul>
+<li><a href="https://github.com/hengyunabc/dubbo-apache-commons-collections-bug" target="_blank" rel="noopener">https://github.com/hengyunabc/dubbo-apache-commons-collections-bug</a></li>
+</ul>
+<p>这里有两个生成java序列化漏洞代码的工具：</p>
+<ul>
+<li><a href="https://github.com/frohoff/ysoserial" target="_blank" rel="noopener">https://github.com/frohoff/ysoserial</a></li>
+<li><a href="https://github.com/mbechler/marshalsec" target="_blank" rel="noopener">https://github.com/mbechler/marshalsec</a></li>
+</ul>
+<h3 id="常见的库怎样防止反序列化漏洞"><a href="#常见的库怎样防止反序列化漏洞" class="headerlink" title="常见的库怎样防止反序列化漏洞"></a>常见的库怎样防止反序列化漏洞</h3><p>下面来看下常见的序列化方案是怎么防止反序列化漏洞的：</p>
+<ol>
+<li><p>Java Serialization</p>
+<ul>
+<li>jdk里增加了一个filter机制 <a href="http://openjdk.java.net/jeps/290" target="_blank" rel="noopener">http://openjdk.java.net/jeps/290</a> ，这个一开始是出现在jdk9上的，后面移值回jdk6/7/8上，如果安装的jdk版本是比较新的，可以找到相关的类</li>
+<li>Oracle打算废除java序列化：<a href="https://www.infoworld.com/article/3275924/java/oracle-plans-to-dump-risky-java-serialization.html" target="_blank" rel="noopener">https://www.infoworld.com/article/3275924/java/oracle-plans-to-dump-risky-java-serialization.html</a> </li>
+</ul>
+</li>
+<li><p>jackson-databind</p>
+<ul>
+<li>jackson-databind里是过滤掉一些已知的类，参见<a href="https://github.com/FasterXML/jackson-databind/blob/jackson-databind-2.9.6/src/main/java/com/fasterxml/jackson/databind/jsontype/impl/SubTypeValidator.java" target="_blank" rel="noopener">SubTypeValidator.java</a></li>
+<li>jackson-databind的<a href="https://github.com/FasterXML/jackson-databind/issues?q=is%3Aissue+label%3ACVE+is%3Aclosed" target="_blank" rel="noopener">CVE issue列表</a></li>
+</ul>
+</li>
+<li><p>fastjson</p>
+<ul>
+<li>fastjson通过一个<code>denyList</code>来过滤掉一些危险类的package，参见<a href="https://github.com/alibaba/fastjson/blob/1.2.7.sec01/src/main/java/com/alibaba/fastjson/parser/ParserConfig.java#L169" target="_blank" rel="noopener">ParserConfig.java</a></li>
+<li>fastjson在新版本里<code>denyList</code>改为通过hashcode来隐藏掉package信息，但通过这个<a href="https://github.com/alibaba/fastjson/blob/1.2.47/src/test/java/com/alibaba/json/bvt/parser/deser/deny/DenyTest5.java" target="_blank" rel="noopener"><code>DenyTest5</code></a>可以知道还是过滤掉常见危险类的package</li>
+<li>fastjson在新版本里默认把<code>autoType</code>的功能禁止掉了</li>
+</ul>
+</li>
+</ol>
+<p>所以总结下来，要么白名单，要么黑名单。当然黑名单机制不能及时更新，业务方得不断升jar包，非常蛋疼。白名单是比较彻底的解决方案。</p>
+<h3 id="为什么protobuf没有序列化漏洞"><a href="#为什么protobuf没有序列化漏洞" class="headerlink" title="为什么protobuf没有序列化漏洞"></a>为什么protobuf没有序列化漏洞</h3><p><strong>这些序列化漏洞的根本原因是：没有控制序列化的类型范围</strong></p>
+<p>为什么在protobuf里并没有这些反序列化问题？</p>
+<ul>
+<li>protobuf在IDL里定义好了package范围</li>
+<li>protobuf的代码都是自动生成的，怎么处理二进制数据都是固定的</li>
+</ul>
+<p>protobuf把一切都框住了，少了灵活性，自然就少漏洞。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>应该重视反序列化漏洞，毕竟Oracle都不得不考虑把java序列化废弃了</li>
+<li>序列化漏洞的根本原因是：没有控制序列化的类型范围</li>
+<li>防止序列化漏洞，最好是使用白名单</li>
+<li>protobuf通过IDL生成代码，严格控制了类型范围</li>
+<li>protobuf不是完美的方案，但是作为跨语言的序列化事实方案之一，IDL生成代码比较麻烦也不是啥大问题</li>
+</ul>
+<h2 id="链接"><a href="#链接" class="headerlink" title="链接"></a>链接</h2><ul>
+<li><a href="https://github.com/protostuff/protostuff" target="_blank" rel="noopener">https://github.com/protostuff/protostuff</a></li>
+<li><a href="https://github.com/facebookarchive/swift" target="_blank" rel="noopener">https://github.com/facebookarchive/swift</a></li>
+<li><a href="http://openjdk.java.net/jeps/290" target="_blank" rel="noopener">http://openjdk.java.net/jeps/290</a></li>
+<li><a href="https://www.infoworld.com/article/3275924/java/oracle-plans-to-dump-risky-java-serialization.html" target="_blank" rel="noopener">https://www.infoworld.com/article/3275924/java/oracle-plans-to-dump-risky-java-serialization.html</a> </li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/security/" rel="tag"># security</a>
+          
+            <a href="/tags/rpc/" rel="tag"># rpc</a>
+          
+            <a href="/tags/http2/" rel="tag"># http2</a>
+          
+            <a href="/tags/grpc/" rel="tag"># grpc</a>
+          
+            <a href="/tags/protobuf/" rel="tag"># protobuf</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/thinking-about-grpc-http2/" rel="next" title="思考gRPC ：为什么是HTTP/2">
+                <i class="fa fa-chevron-left"></i> 思考gRPC ：为什么是HTTP/2
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/kotlin-extension-functions/" rel="prev" title="Kotlin里的Extension Functions实现原理分析">
+                Kotlin里的Extension Functions实现原理分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#跨语言的序列化方案"><span class="nav-number">2.</span> <span class="nav-text">跨语言的序列化方案</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#序列化里的类型信息"><span class="nav-number">2.1.</span> <span class="nav-text">序列化里的类型信息</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实际使用中序列化有哪些问题"><span class="nav-number">3.</span> <span class="nav-text">实际使用中序列化有哪些问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#gRPC是protobuf的一个插件"><span class="nav-number">3.1.</span> <span class="nav-text">gRPC是protobuf的一个插件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#protobuf并不是完美解决方案"><span class="nav-number">4.</span> <span class="nav-text">protobuf并不是完美解决方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#序列化库的速度问题"><span class="nav-number">5.</span> <span class="nav-text">序列化库的速度问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#序列化被人忽视的安全性问题"><span class="nav-number">6.</span> <span class="nav-text">序列化被人忽视的安全性问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#序列化漏洞危害很大"><span class="nav-number">6.1.</span> <span class="nav-text">序列化漏洞危害很大</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#常见的库怎样防止反序列化漏洞"><span class="nav-number">6.2.</span> <span class="nav-text">常见的库怎样防止反序列化漏洞</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#为什么protobuf没有序列化漏洞"><span class="nav-number">6.3.</span> <span class="nav-text">为什么protobuf没有序列化漏洞</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#链接"><span class="nav-number">8.</span> <span class="nav-text">链接</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

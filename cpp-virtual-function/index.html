@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言虚函数为什么慢，cpu分支预测技术，虚函数到底要调用哪些汇编，虚函数实现的简单图示，虚函数不能内联， 印象中经常看到有人批评C++的虚函数很慢，但是虚函数为什么慢，虚函数到底有多慢呢？ 理论分析虚函数慢的原因主要有三个：  多了几条汇编指令（运行时得到对应类的函数的地址） 影响cpu流水线 编译器不能内联优化（仅在用父类引用或者指针调用时，不能内联）  先简单说下虚函数的实现，以下面测试代码中">
+<meta name="keywords" content="cpp">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C++中虚函数(virtual function)到底有多慢">
+<meta property="og:url" content="http://hengyunabc.github.io/cpp-virtual-function/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言虚函数为什么慢，cpu分支预测技术，虚函数到底要调用哪些汇编，虚函数实现的简单图示，虚函数不能内联， 印象中经常看到有人批评C++的虚函数很慢，但是虚函数为什么慢，虚函数到底有多慢呢？ 理论分析虚函数慢的原因主要有三个：  多了几条汇编指令（运行时得到对应类的函数的地址） 影响cpu流水线 编译器不能内联优化（仅在用父类引用或者指针调用时，不能内联）  先简单说下虚函数的实现，以下面测试代码中">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://hengyunabc.github.io/img/cpp-vtable.jpg">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="C++中虚函数(virtual function)到底有多慢">
+<meta name="twitter:description" content="前言虚函数为什么慢，cpu分支预测技术，虚函数到底要调用哪些汇编，虚函数实现的简单图示，虚函数不能内联， 印象中经常看到有人批评C++的虚函数很慢，但是虚函数为什么慢，虚函数到底有多慢呢？ 理论分析虚函数慢的原因主要有三个：  多了几条汇编指令（运行时得到对应类的函数的地址） 影响cpu流水线 编译器不能内联优化（仅在用父类引用或者指针调用时，不能内联）  先简单说下虚函数的实现，以下面测试代码中">
+<meta name="twitter:image" content="http://hengyunabc.github.io/img/cpp-vtable.jpg">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/cpp-virtual-function/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>C++中虚函数(virtual function)到底有多慢 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/cpp-virtual-function/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">C++中虚函数(virtual function)到底有多慢
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2012-04-16 21:58:28" itemprop="dateCreated datePublished" datetime="2012-04-16T21:58:28+00:00">2012-04-16</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>虚函数为什么慢，cpu分支预测技术，虚函数到底要调用哪些汇编，虚函数实现的简单图示，虚函数不能内联，</p>
+<p>印象中经常看到有人批评C++的虚函数很慢，但是虚函数为什么慢，虚函数到底有多慢呢？</p>
+<h2 id="理论分析"><a href="#理论分析" class="headerlink" title="理论分析"></a>理论分析</h2><p>虚函数慢的原因主要有三个：</p>
+<ul>
+<li>多了几条汇编指令（运行时得到对应类的函数的地址）</li>
+<li>影响cpu流水线</li>
+<li>编译器不能内联优化（仅在用父类引用或者指针调用时，不能内联）</li>
+</ul>
+<p>先简单说下虚函数的实现，以下面测试代码中的VirtualVector类为例，VirtualVector类的内存布局如下：</p>
+<p><img src="/img/cpp-vtable.jpg" alt></p>
+<p>当在用父类的引用或者指针调用虚函数时，会先从该对象的头部取到虚函数的地址（C++标准规定虚函数表地址必须放最前），再从虚函数表中取到实际要调用的函数的地址，最终调用该函数，汇编代码大概如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">			sum += v.at(i);       <span class="comment">//要调用at函数</span></span><br><span class="line"><span class="number">00</span>CF1305  mov         eax,dword ptr [ebx]     <span class="comment">//取到对象的虚函数表地址</span></span><br><span class="line"><span class="number">00</span>CF1307  mov         edx,dword ptr [eax+<span class="number">4</span>]   <span class="comment">//取到实际VirtualVector类的at函数地址，因为at是第二个虚函数，所以要+4，如果是clear则+8，push_back则不加</span></span><br><span class="line"><span class="number">00</span>CF130A  push        esi                     <span class="comment">//参数压栈</span></span><br><span class="line"><span class="number">00</span>CF130B  mov         ecx,ebx                 </span><br><span class="line"><span class="number">00</span>CF130D  call        edx                     <span class="comment">//调用真正的VirtualVector类的at函数</span></span><br></pre></td></tr></table></figure>
+<p><strong>所以，我们可以看到调用虚函数，相比普通函数，实际上多了三条汇编指令（取虚表，取函数地址，call调用）。</strong></p>
+<p><strong>至于虚函数如何影响cpu的流水线，则主要是因为call指令</strong>，具体可以看这个网址的演示：</p>
+<p>CPU流水线的一个演示：<a href="http://www.pictutorials.com/Instruction_Pipeline.html" target="_blank" rel="noopener">http://www.pictutorials.com/Instruction_Pipeline.html</a></p>
+<p>第3点，编译器不能内联优化，则是因为在得到子类的引用或者指针之前，根本不知道要调用哪一个函数，所以无从内联。</p>
+<p>但是，要注意的是，对于子类直接调用虚函数，是可以内联优化的。如以下的代码，编译器是完全可以内联展开的。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">VirtualVector <span class="title">v</span><span class="params">(<span class="number">100</span>)</span></span>;</span><br><span class="line">v.push_back(<span class="number">1</span>);</span><br><span class="line">v.at(<span class="number">0</span>);</span><br></pre></td></tr></table></figure>
+<h2 id="实际测试"><a href="#实际测试" class="headerlink" title="实际测试"></a>实际测试</h2><p>光说不练显然不行，下面用代码来测试下虚函数到底有多慢。</p>
+<p>下面的代码只是测试用，不考虑细节。</p>
+<p>Vector类包装了一个数组，提供push_back，at，clear函数。</p>
+<p>VirtualVector类继承了IVector，同样实现了push_back，at，clear函数，但是都是虚函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> size = <span class="number">100000000</span>;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span>&#123;</span></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="keyword">int</span> *<span class="built_in">array</span>;</span><br><span class="line">	<span class="keyword">int</span> pos;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	Vector(<span class="keyword">int</span> size):<span class="built_in">array</span>(<span class="keyword">new</span> <span class="keyword">int</span>[size]),pos(<span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[pos++] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">IVector</span>&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">virtual</span> ~IVector() &#123;&#125;;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector</span> :</span> <span class="keyword">public</span> IVector&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="keyword">int</span> *<span class="built_in">array</span>;</span><br><span class="line">	<span class="keyword">int</span> pos;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector(<span class="keyword">int</span> size):<span class="built_in">array</span>(<span class="keyword">new</span> <span class="keyword">int</span>[size]),pos(<span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[pos++] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	~VirtualVector()</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">if</span>(<span class="built_in">array</span> != <span class="literal">NULL</span>)</span><br><span class="line">			<span class="keyword">delete</span> <span class="built_in">array</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVectorPush</span><span class="params">(Vector&amp; v)</span></span>&#123;</span><br><span class="line">	v.clear();</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		v.push_back(i);</span><br><span class="line">		<span class="comment">//cout&lt;&lt;v.size()&lt;&lt;endl;</span></span><br><span class="line">	&#125;</span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVectorAt</span><span class="params">(Vector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">1</span>; ++j)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">		&#123;</span><br><span class="line">			sum += v.at(i);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"sum:"</span>&lt;&lt;sum&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVirtualVectorPush</span><span class="params">(IVector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	v.clear();</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		v.push_back(i);</span><br><span class="line">		<span class="comment">//cout&lt;&lt;v.size()&lt;&lt;endl;</span></span><br><span class="line">	&#125;</span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVirtualVectorAt</span><span class="params">(IVector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">1</span>; ++j)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">		&#123;</span><br><span class="line">			sum += v.at(i);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"sum:"</span>&lt;&lt;sum&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="keyword">sizeof</span>(VirtualVector)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">	Vector *v = <span class="keyword">new</span> Vector(size);</span><br><span class="line">	VirtualVector *V = <span class="keyword">new</span> VirtualVector(size);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVectorPush:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVirtualVectorPush:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVectorAt:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVirtualVectorAt:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的是只有一层继承的情况时的结果，<strong>尽管从虚函数的实现角度来看，多层继承和一层继承调用虚函数的效率都是一样的。</strong></p>
+<p>但是为了测试结果更加可信，下面是一个6层继承的测试代码（为了防止编译器的优化，有很多垃圾代码）：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br><span class="line">259</span><br><span class="line">260</span><br><span class="line">261</span><br><span class="line">262</span><br><span class="line">263</span><br><span class="line">264</span><br><span class="line">265</span><br><span class="line">266</span><br><span class="line">267</span><br><span class="line">268</span><br><span class="line">269</span><br><span class="line">270</span><br><span class="line">271</span><br><span class="line">272</span><br><span class="line">273</span><br><span class="line">274</span><br><span class="line">275</span><br><span class="line">276</span><br><span class="line">277</span><br><span class="line">278</span><br><span class="line">279</span><br><span class="line">280</span><br><span class="line">281</span><br><span class="line">282</span><br><span class="line">283</span><br><span class="line">284</span><br><span class="line">285</span><br><span class="line">286</span><br><span class="line">287</span><br><span class="line">288</span><br><span class="line">289</span><br><span class="line">290</span><br><span class="line">291</span><br><span class="line">292</span><br><span class="line">293</span><br><span class="line">294</span><br><span class="line">295</span><br><span class="line">296</span><br><span class="line">297</span><br><span class="line">298</span><br><span class="line">299</span><br><span class="line">300</span><br><span class="line">301</span><br><span class="line">302</span><br><span class="line">303</span><br><span class="line">304</span><br><span class="line">305</span><br><span class="line">306</span><br><span class="line">307</span><br><span class="line">308</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> size = <span class="number">100000000</span>;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span>&#123;</span></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="keyword">int</span> *<span class="built_in">array</span>;</span><br><span class="line">	<span class="keyword">int</span> pos;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	Vector(<span class="keyword">int</span> size):<span class="built_in">array</span>(<span class="keyword">new</span> <span class="keyword">int</span>[size]),pos(<span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[pos++] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">IVector</span>&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">virtual</span> ~IVector() &#123;&#125;;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector1</span> :</span> <span class="keyword">public</span> IVector&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="keyword">int</span> *<span class="built_in">array</span>;</span><br><span class="line">	<span class="keyword">int</span> pos;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector1(<span class="keyword">int</span> size):<span class="built_in">array</span>(<span class="keyword">new</span> <span class="keyword">int</span>[size]),pos(<span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[<span class="number">1</span>] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[<span class="number">1</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	~VirtualVector1()</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">if</span>(<span class="built_in">array</span> != <span class="literal">NULL</span>)</span><br><span class="line">			<span class="keyword">delete</span> <span class="built_in">array</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector2</span> :</span> <span class="keyword">public</span> VirtualVector1&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector2(<span class="keyword">int</span> size):VirtualVector1(size)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[<span class="number">2</span>] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[<span class="number">2</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector3</span> :</span> <span class="keyword">public</span> VirtualVector2&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector3(<span class="keyword">int</span> size):VirtualVector2(size)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[<span class="number">3</span>] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[<span class="number">3</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector4</span> :</span> <span class="keyword">public</span> VirtualVector3&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector4(<span class="keyword">int</span> size):VirtualVector3(size)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[<span class="number">4</span>] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[<span class="number">4</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector5</span> :</span> <span class="keyword">public</span> VirtualVector4&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector5(<span class="keyword">int</span> size):VirtualVector4(size)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[<span class="number">5</span>] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[<span class="number">5</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector6</span> :</span> <span class="keyword">public</span> VirtualVector5&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector6(<span class="keyword">int</span> size):VirtualVector5(size)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[<span class="number">6</span>] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[<span class="number">6</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector</span> :</span> <span class="keyword">public</span> VirtualVector6&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector(<span class="keyword">int</span> size):VirtualVector6(size)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[pos++] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVectorPush</span><span class="params">(Vector&amp; v)</span></span>&#123;</span><br><span class="line">	v.clear();</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		v.push_back(i);</span><br><span class="line">		<span class="comment">//cout&lt;&lt;v.size()&lt;&lt;endl;</span></span><br><span class="line">	&#125;</span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVectorAt</span><span class="params">(Vector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">1</span>; ++j)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">		&#123;</span><br><span class="line">			sum += v.at(i);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"sum:"</span>&lt;&lt;sum&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVirtualVectorPush</span><span class="params">(IVector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	v.clear();</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		v.push_back(i);</span><br><span class="line">		<span class="comment">//cout&lt;&lt;v.size()&lt;&lt;endl;</span></span><br><span class="line">	&#125;</span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVirtualVectorAt</span><span class="params">(IVector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">1</span>; ++j)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">		&#123;</span><br><span class="line">			sum += v.at(i);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"sum:"</span>&lt;&lt;sum&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="keyword">sizeof</span>(VirtualVector)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">auto</span> v = VirtualVector1(size);</span><br><span class="line">		v.push_back(<span class="number">0</span>);</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;v.at(<span class="number">0</span>)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">auto</span> v = VirtualVector2(size);</span><br><span class="line">		v.push_back(<span class="number">0</span>);</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;v.at(<span class="number">0</span>)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">auto</span> v = VirtualVector3(size);</span><br><span class="line">		v.push_back(<span class="number">0</span>);</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;v.at(<span class="number">0</span>)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">auto</span> v = VirtualVector4(size);</span><br><span class="line">		v.push_back(<span class="number">0</span>);</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;v.at(<span class="number">0</span>)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">auto</span> v = VirtualVector5(size);</span><br><span class="line">		v.push_back(<span class="number">0</span>);</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;v.at(<span class="number">0</span>)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">auto</span> v = VirtualVector6(size);</span><br><span class="line">		v.push_back(<span class="number">0</span>);</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;v.at(<span class="number">0</span>)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">auto</span> *v = <span class="keyword">new</span> Vector(size);</span><br><span class="line">	<span class="keyword">auto</span> *V = <span class="keyword">new</span> VirtualVector(size);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVectorPush:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVirtualVectorPush:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVectorAt:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVirtualVectorAt:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>测试结果都取最小时间</p>
+<p>1层继承的测试结果：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>push_back</th>
+<th>at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vector</td>
+<td>0.263s</td>
+<td>0.04s</td>
+</tr>
+<tr>
+<td>VirtualVector</td>
+<td>0.331s</td>
+<td>0.222s</td>
+</tr>
+<tr>
+<td>倍数</td>
+<td>1.25</td>
+<td>5.55</td>
+</tr>
+</tbody>
+</table>
+<p>6层继承的测试结果：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>push_back</th>
+<th>at</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vector</td>
+<td>0.262s</td>
+<td>0.041s</td>
+</tr>
+<tr>
+<td>VirtualVector</td>
+<td>0.334s</td>
+<td>0.223s</td>
+</tr>
+<tr>
+<td>倍数</td>
+<td>1.27</td>
+<td>5.43</td>
+</tr>
+</tbody>
+</table>
+<ol>
+<li><p>可以看出继承层数和虚函数调用效率无关</p>
+</li>
+<li><p>可以看出虚函数慢得有点令人发指了，对于at操作，虚函数花的时间竟然是普通函数的5.5倍！</p>
+</li>
+</ol>
+<p>但是，再看看，我们可以发现对于push_back操作，虚函数花的时间是普通函数的1.25倍。why?</p>
+<p>再分析下代码，我们可以发现at操作的逻辑，明显要比push_back的逻辑要简单。</p>
+<p>虚函数额外消耗时间为 vt，函数本身所消耗时间为 ft，则有以下</p>
+<ul>
+<li>倍数 = (vt + ft)/ft = 1 + vt/ft</li>
+</ul>
+<p>显然当ft越大，即函数本身消耗时间越长，则倍数越小。</p>
+<p>那么让我们在at操作中加了额外代码，统计下1到100之和：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	sssForTest = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">100</span>; ++j)</span><br><span class="line">		sssForTest += j;</span><br><span class="line">	<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>测试代码：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> size = <span class="number">100000000</span>;</span><br><span class="line"><span class="keyword">int</span> sssForTest = <span class="number">0</span>;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span>&#123;</span></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="keyword">int</span> *<span class="built_in">array</span>;</span><br><span class="line">	<span class="keyword">int</span> pos;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	Vector(<span class="keyword">int</span> size):<span class="built_in">array</span>(<span class="keyword">new</span> <span class="keyword">int</span>[size]),pos(<span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[pos++] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		sssForTest = <span class="number">0</span>;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">100</span>; ++j)</span><br><span class="line">			sssForTest += j;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">IVector</span>&#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span> </span>= <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">virtual</span> ~IVector() &#123;&#125;;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">VirtualVector</span> :</span> <span class="keyword">public</span> IVector&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="keyword">int</span> *<span class="built_in">array</span>;</span><br><span class="line">	<span class="keyword">int</span> pos;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	VirtualVector(<span class="keyword">int</span> size):<span class="built_in">array</span>(<span class="keyword">new</span> <span class="keyword">int</span>[size]),pos(<span class="number">0</span>)</span><br><span class="line">	&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">int</span> val)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		<span class="built_in">array</span>[pos++] = val;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">int</span> <span class="title">at</span><span class="params">(<span class="keyword">int</span> i)</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		sssForTest = <span class="number">0</span>;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">100</span>; ++j)</span><br><span class="line">			sssForTest += j;</span><br><span class="line">		<span class="keyword">return</span> <span class="built_in">array</span>[i];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span></span></span><br><span class="line"><span class="function">	</span>&#123;</span><br><span class="line">		pos = <span class="number">0</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	~VirtualVector()</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">if</span>(<span class="built_in">array</span> != <span class="literal">NULL</span>)</span><br><span class="line">			<span class="keyword">delete</span> <span class="built_in">array</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVectorPush</span><span class="params">(Vector&amp; v)</span></span>&#123;</span><br><span class="line">	v.clear();</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		v.push_back(i);</span><br><span class="line">		<span class="comment">//cout&lt;&lt;v.size()&lt;&lt;endl;</span></span><br><span class="line">	&#125;</span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVectorAt</span><span class="params">(Vector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">1</span>; ++j)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">		&#123;</span><br><span class="line">			sum += v.at(i);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"sum:"</span>&lt;&lt;sum&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVirtualVectorPush</span><span class="params">(IVector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	v.clear();</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">	&#123;</span><br><span class="line">		v.push_back(i);</span><br><span class="line">		<span class="comment">//cout&lt;&lt;v.size()&lt;&lt;endl;</span></span><br><span class="line">	&#125;</span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testVirtualVectorAt</span><span class="params">(IVector&amp; v)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStart;      <span class="comment">//计时开始</span></span><br><span class="line">	<span class="keyword">clock_t</span> nTimeStop;       <span class="comment">//计时结束</span></span><br><span class="line">	<span class="keyword">int</span> sum = <span class="number">0</span>;</span><br><span class="line">	nTimeStart = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="keyword">for</span>(<span class="keyword">int</span> j = <span class="number">0</span>; j &lt; <span class="number">1</span>; ++j)</span><br><span class="line">	&#123;</span><br><span class="line">		<span class="keyword">for</span>(<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; size; ++i)</span><br><span class="line">		&#123;</span><br><span class="line">			sum += v.at(i);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	nTimeStop = clock();    <span class="comment">//</span></span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt;<span class="string">"耗时："</span>&lt;&lt;(<span class="keyword">double</span>)(nTimeStop - nTimeStart)/CLOCKS_PER_SEC&lt;&lt;<span class="string">"秒"</span>&lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"sum:"</span>&lt;&lt;sum&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="keyword">sizeof</span>(VirtualVector)&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">	Vector *v = <span class="keyword">new</span> Vector(size);</span><br><span class="line">	VirtualVector *V = <span class="keyword">new</span> VirtualVector(size);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVectorPush:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line">	testVectorPush(*v);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVirtualVectorPush:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line">	testVirtualVectorPush(*V);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVectorAt:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line">	testVectorAt(*v);</span><br><span class="line"> </span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testVirtualVectorAt:"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line">	testVirtualVectorAt(*V);</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>at操作中增加求和后的统计结果：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>push_back</th>
+<th>at 增加求和代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vector</td>
+<td>0.265s</td>
+<td>6.893s</td>
+</tr>
+<tr>
+<td>VirtualVector</td>
+<td>0.328s</td>
+<td>7.125s</td>
+</tr>
+<tr>
+<td>倍数</td>
+<td>1.23</td>
+<td>1.03</td>
+</tr>
+</tbody>
+</table>
+<p>只是简单增加了一个求和代码，我们可以看到，倍数变成了1.03，也就是说虚函数的消耗基本可以忽略了。</p>
+<p><strong>所以说，虚函数的效率到底低不低和实际要调用的函数的耗时有关，当函数本身的的耗时越长，则虚函数的影响则越小。</strong></p>
+<p>再从另一个角度来看，一个虚函数调用到底额外消耗了多长时间？</p>
+<p>从统计数据来看100,000,000次函数调用，虚函数总共额外消耗了0.05~0.23秒（VirtualVector对应时间减去Vector时间），</p>
+<p><strong>也就是说，1亿次调用，虚函数额外花的时间是0.x到2.3秒。</strong></p>
+<p>也就是说，如果你有个函数，要被调用1亿次，而这1亿次调用所花的时间是几秒，十几秒，且你不能容忍它慢一二秒，那么就干掉虚函数吧^_^。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>虚函数调用效率和继承层数无关；</li>
+<li>其实虚函数还是挺快的。</li>
+<li>如果真的要完全移除虚函数，那么如果要实现运行时多态，则要用到函数指针，据上面的分析，函数指针基本具有虚函数的所有缼点（要传递函数指针，同样无法内联，同样影响流水线），且函数指针会使代码混乱。</li>
+</ul>
+<p>BTW：测试cpu是i5。</p>
+<p>TODO：测试指针函数，boost::bind的效率</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/cpp/" rel="tag"># cpp</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/cpp-compiler-optimization/" rel="next" title="C++编译器到底能帮我们把代码优化到什么程度？">
+                <i class="fa fa-chevron-left"></i> C++编译器到底能帮我们把代码优化到什么程度？
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/generic-translation/" rel="prev" title="泛型编程的困境">
+                泛型编程的困境 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#理论分析"><span class="nav-number">2.</span> <span class="nav-text">理论分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实际测试"><span class="nav-number">3.</span> <span class="nav-text">实际测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#测试结果"><span class="nav-number">4.</span> <span class="nav-text">测试结果</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

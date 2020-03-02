@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="更新update 2018-06-04 2015年出的一个规范 JSON Web Token (JWT)  https://tools.ietf.org/html/rfc7519  JWT 官网： https://jwt.io/   八幅漫画理解使用JSON Web Token设计单点登录系统： http://blog.leapoahead.com/2015/09/07/user-authenti">
+<meta name="keywords" content="app,security,password">
+<meta property="og:type" content="article">
+<meta property="og:title" content="移动App该如何保存用户密码">
+<meta property="og:url" content="http://hengyunabc.github.io/app-password/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="更新update 2018-06-04 2015年出的一个规范 JSON Web Token (JWT)  https://tools.ietf.org/html/rfc7519  JWT 官网： https://jwt.io/   八幅漫画理解使用JSON Web Token设计单点登录系统： http://blog.leapoahead.com/2015/09/07/user-authenti">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://hengyunabc.github.io/img/browser-login.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/app-login.png">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="移动App该如何保存用户密码">
+<meta name="twitter:description" content="更新update 2018-06-04 2015年出的一个规范 JSON Web Token (JWT)  https://tools.ietf.org/html/rfc7519  JWT 官网： https://jwt.io/   八幅漫画理解使用JSON Web Token设计单点登录系统： http://blog.leapoahead.com/2015/09/07/user-authenti">
+<meta name="twitter:image" content="http://hengyunabc.github.io/img/browser-login.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/app-password/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>移动App该如何保存用户密码 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/app-password/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">移动App该如何保存用户密码
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2012-07-19 19:58:28" itemprop="dateCreated datePublished" datetime="2012-07-19T19:58:28+00:00">2012-07-19</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="更新"><a href="#更新" class="headerlink" title="更新"></a>更新</h2><p>update 2018-06-04</p>
+<p>2015年出的一个规范 JSON Web Token (JWT)  <a href="https://tools.ietf.org/html/rfc7519" target="_blank" rel="noopener">https://tools.ietf.org/html/rfc7519</a> </p>
+<p>JWT 官网： <a href="https://jwt.io/" target="_blank" rel="noopener">https://jwt.io/</a>  </p>
+<p>八幅漫画理解使用JSON Web Token设计单点登录系统： <a href="http://blog.leapoahead.com/2015/09/07/user-authentication-with-jwt/" target="_blank" rel="noopener">http://blog.leapoahead.com/2015/09/07/user-authentication-with-jwt/</a> </p>
+<p>JSON Web Encryption (JWE) ： <a href="https://tools.ietf.org/html/rfc7516" target="_blank" rel="noopener">https://tools.ietf.org/html/rfc7516</a> </p>
+<p>JSON Web Signature (JWS) ： <a href="https://tools.ietf.org/html/rfc7515" target="_blank" rel="noopener">https://tools.ietf.org/html/rfc7515</a> </p>
+<p>update 2017-9-6 </p>
+<p>微信交互协议和加密模式研究：<a href="https://github.com/hengyunabc/hengyunabc.github.io/files/1280081/wechat.pdf" target="_blank" rel="noopener">https://github.com/hengyunabc/hengyunabc.github.io/files/1280081/wechat.pdf</a></p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>移动App该如何保存用户密码？</p>
+<p>这个实际上和桌面程序是一样的。</p>
+<h2 id="先看下一些软件是如何保存用户密码的"><a href="#先看下一些软件是如何保存用户密码的" class="headerlink" title="先看下一些软件是如何保存用户密码的"></a>先看下一些软件是如何保存用户密码的</h2><ul>
+<li>QQ</li>
+</ul>
+<p>参考：<a href="http://bbs.pediy.com/archive/index.php?t-159045.html，桌面QQ在2012的时候把密码md5计算之后，保存到本地加密的Sqlite数据库里。" target="_blank" rel="noopener">http://bbs.pediy.com/archive/index.php?t-159045.html，桌面QQ在2012的时候把密码md5计算之后，保存到本地加密的Sqlite数据库里。</a></p>
+<ul>
+<li>手机淘宝</li>
+</ul>
+<p>参考：<a href="http://blog.csdn.net/androidsecurity/article/details/8666954" target="_blank" rel="noopener">http://blog.csdn.net/androidsecurity/article/details/8666954</a></p>
+<p>手机淘宝是通过本地DES加密，再把密码保存到本地文件里的，如果拿到ROOT权限，能破解出密码明文。</p>
+<ul>
+<li>Windows</li>
+</ul>
+<p>参考：<a href="http://www.freebuf.com/tools/37162.html" target="_blank" rel="noopener">http://www.freebuf.com/tools/37162.html</a> </p>
+<p>我实际测试了下，可以轻松得到所有帐号的密码明文。</p>
+<ul>
+<li>Linux</li>
+</ul>
+<p>参考：<a href="http://blog.csdn.net/lqhbupt/article/details/7787802" target="_blank" rel="noopener">http://blog.csdn.net/lqhbupt/article/details/7787802</a></p>
+<p><strong>linux是通过加盐(salt)，再hash后，保存到/etc/shadow文件里的。</strong></p>
+<p>貌似以前的发行版是md5 hash，现在的发行版都是SHA-512 hash。</p>
+<p>linux用户密码的hash算法： <a href="http://serverfault.com/questions/439650/how-are-the-hashes-in-etc-shadow-generated" target="_blank" rel="noopener">http://serverfault.com/questions/439650/how-are-the-hashes-in-etc-shadow-generated</a></p>
+<p>实际上是调用了glic里的crypt函数，可以在man手册里查看相关的信息。</p>
+<p>可以用下面的命令来生成：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkpasswd --method=SHA-512 --salt=xxxx</span><br></pre></td></tr></table></figure>
+<p>其中salt参数，可以自己设置，最好是随机生成的。<br>可以用 <code>mkpasswd --method=help</code> 来查看支持的算法。</p>
+<h2 id="用户密码该如何保存，还有能做到哪种程度？"><a href="#用户密码该如何保存，还有能做到哪种程度？" class="headerlink" title="用户密码该如何保存，还有能做到哪种程度？"></a>用户密码该如何保存，还有能做到哪种程度？</h2><p>看完上面一些软件的做法之后，我们来探讨下，用户密码该如何保存，还有能做到哪种程度？</p>
+<ul>
+<li>假定本地存储的hash串/加密串，和加密算法，攻击者都可以得到，或者逆向分析到。</li>
+</ul>
+<p>实际上也是如此，通过上面QQ和淘宝的例子，允分说明了加密串是可以得到的。Linux更是一切都是公开的，只要有权限就可以读取到，包括salt值，shah算法，(salt+密码) hash之后的结果。</p>
+<ul>
+<li>防止攻击者得到用户密码的明文。这个实际上是从用户的角度出发，即使数据泄露了，影响降到最低。</li>
+<li>防止攻击者拿到hash串或者加密串之后，一直都可以登陆。这点对于移动设置是很重要的，比如今天用户连到了一个恶意的wifi，如果攻击者截获到请求，要防止攻击者潜伏几天，或者几个月之后的攻击。必须要让请求的凭据在一天或者几天内失效。</li>
+</ul>
+<h2 id="加盐-salt"><a href="#加盐-salt" class="headerlink" title="加盐(salt)"></a>加盐(salt)</h2><p>假如不加盐，那么攻击者可以根据同样的hash值得到很多信息。</p>
+<p>比如网站1的数据库泄露了，攻击者发现用户A和用户B的hash值是一样的，然后攻击者通过其它途径拿到了用户A的密码，那么攻击者就可以知道用户B的密码了。</p>
+<p>或者攻击者通过彩虹表，暴力破解等方式可以直接知道用户的原来密码。</p>
+<p><strong>所以，每个用户的salt值都要是不一样的，这点参考linux的/etc/shadow文件就知道了。</strong></p>
+<h2 id="客户端本地存储密码的算法"><a href="#客户端本地存储密码的算法" class="headerlink" title="客户端本地存储密码的算法"></a>客户端本地存储密码的算法</h2><p>应该用哪种算法来存储？</p>
+<p>从上面的资料来看，手机淘宝是本地DES对称加密，显然很容易就可以破解到用户的真实密码。QQ也是对称加密的数据库里，存储了用户密码的md5值。</p>
+<p>显然对称加密算法都是可以逆向得到原来的数据的。那么我们尝试用非对称加密算法，比如RSA来传输用户的密码。</p>
+<p>那么用户登陆的流程就变为：</p>
+<ol>
+<li>客户端用公钥加密用户密码，保存到本地；</li>
+<li>用户要登陆时，发送加密串到服务器；</li>
+<li>服务器用私钥解密，得到用户的密码，再验证。</li>
+</ol>
+<p>有的人会说，如果服务器的私钥泄露怎么办？</p>
+<p>服务器端换个新的密钥，强制客户端下载新的公钥或者升级。</p>
+<p><strong>可以考虑有一个专门的硬件来解密，这个硬件只负责计算，私钥是一次性写入不可读取和修改的。搜索 rsa hardware，貌似的确有这样的硬件。</strong></p>
+<p>当然，即使真的私钥泄露，世界一样运转，像OpenSSL的心血漏洞就可能泄露服务器私钥，但大家日子一样过。</p>
+<p>非对称加密算法的好处：</p>
+<ul>
+<li>即使数据被盗，攻击者拿不到密码的明文</li>
+<li>如果发现有部分用户的数据被盗了（公钥加密后的数据），可以通过升级服务器和客户端的版本，让用户重新输入密码，用户还是原来的密码，但是攻击者却登陆不了了。</li>
+<li>对于安全要求严格的应用，还可以定期更新私钥，来保证用户的数据安全。</li>
+</ul>
+<h2 id="如何防止本地加密串泄露之后，攻击者可能潜伏很久？"><a href="#如何防止本地加密串泄露之后，攻击者可能潜伏很久？" class="headerlink" title="如何防止本地加密串泄露之后，攻击者可能潜伏很久？"></a>如何防止本地加密串泄露之后，攻击者可能潜伏很久？</h2><p>这点实际上是如何让客户端保存的加密串及时的失效。</p>
+<p>比如：</p>
+<ol>
+<li>强制要求客户端保存的加密串一周失效；</li>
+<li>用户手机中病毒了，攻击者窃取到了加密串。但是清除病毒之后，用户没有够时的修改密码。攻击者是否会潜伏很久？</li>
+<li><strong>发现某木马大规模窃取到了大量的用户本地加密串，是否可以强制用户的本地加密串失效，客户端不用升级，用户不用修改密码，也不会泄露信息？</strong></li>
+</ol>
+<p>下面提出一种 salt + 非对称加密算法的方案来解决这个问题：</p>
+<ol>
+<li>用户填写密码，客户端随机生成一个salt值（注意这个salt只是防止中间人拦截到原始的password的加密串），用公钥把 (salt + password)加密，设置首次登陆的参数，发送到服务器；</li>
+<li>服务器检查参数，发现是首次登陆，则服务器用私钥解密，得到password（抛弃salt值），验证，如果通过，则随机生成一个salt值，并把salt值保存起来（保存到缓存里，设置7天过期），然后用公钥把(salt + 用户名)加密，返回给客户端。</li>
+<li>客户端保存服务器返回的加密串，完成登陆。</li>
+<li>客户端下次自动登陆时，把上次保存的加密串直接发给服务器，并设置二次登陆的参数。</li>
+<li>服务器检查参数，发现是二次登陆，用私钥解密，得到salt + 用户名，然后检查salt值是否过期了（到缓存中查找，如果没有，即过期），如果过期，则通知客户端，让用户重新输入密码。如果没有过期，再验证密码是否正确。如果正确，则通知客户端登陆成功。</li>
+<li><strong>如果发现某帐户异常，可以直接清除缓存中对应用户的salt值，这样用户再登陆就会失败。同理，如果某木马大规模窃取到了大量的用户本地加密串，那么可以把缓存中所有用户的salt都清除，那么所有用户都要重新登陆。注意用户的密码不用修改。</strong></li>
+<li>第2步中服务器生成的salt值，可以带上用户的mac值，os版本等，这样可以增强检验。</li>
+</ol>
+<p>注意，为了简化描述，上面提到的用户的password，可以是先用某个hash算法hash一次。</p>
+<h2 id="具体的登陆流程"><a href="#具体的登陆流程" class="headerlink" title="具体的登陆流程"></a>具体的登陆流程</h2><h3 id="浏览器登陆的流程"><a href="#浏览器登陆的流程" class="headerlink" title="浏览器登陆的流程"></a>浏览器登陆的流程</h3><p>浏览器的登陆过程比较简单，只要用RSA公钥加密密码就可以了。防止中间人截取到明文的密码。 </p>
+<p><img src="/img/browser-login.png" alt></p>
+<h3 id="App登陆保存数据流程"><a href="#App登陆保存数据流程" class="headerlink" title="App登陆保存数据流程"></a>App登陆保存数据流程</h3><p>App因为要实现自动登陆功能，所以必然要保存一些凭据，所以比较复杂。 </p>
+<p>App登陆要实现的功能： </p>
+<ul>
+<li>密码不会明文存储，并且不能反编绎解密； </li>
+<li>在服务器端可以控制App端的登陆有效性，防止攻击者拿到数据之后，可以长久地登陆； </li>
+<li>用户如果密码没有泄露，不用修改密码就可以保证安全性； </li>
+<li>可以区分不同类型的客户端安全性；比如Android用户受到攻击，只会让Android用户的登陆失效，IOS用户不受影响。 </li>
+</ul>
+<h3 id="App第一次登陆流程"><a href="#App第一次登陆流程" class="headerlink" title="App第一次登陆流程"></a>App第一次登陆流程</h3><ul>
+<li>用户输入密码，App把这些信息用RSA公钥加密：(用户名,密码,时间,mac,随机数)，并发送到服务器。 </li>
+<li>服务器用RSA私钥解密，判断时间（可以动态调整1天到7天），如果不在时间范围之内，则登陆失败。如果在时间范围之内，再调用coreservice判断用户名和密码。</li>
+</ul>
+<p>这里判断时间，主要是防止攻击者截取到加密串后，可以长久地利用这个加密串来登陆。 </p>
+<ul>
+<li>如果服务器判断用户成功登陆，则用AES加密：(随机salt,用户名,客户端类型,时间)，以（用户名+Android/IOS/WP）为key，存到缓存里。再把加密结果返回给客户端。 </li>
+<li>客户端保存服务器返回的加密串 </li>
+</ul>
+<h3 id="App自动登陆的流程"><a href="#App自动登陆的流程" class="headerlink" title="App自动登陆的流程"></a>App自动登陆的流程</h3><ul>
+<li>App发送保存的加密串到服务器，（加密串，用户名，mac，随机数）==&gt;RSA公钥加密 </li>
+<li>服务器用RSA私钥解密，再用AES解密加密串，判断用户名是否一致。如果一致，再以（用户名+Android/IOS/WP）为key到缓存里查询。如果判断缓存中的salt值和客户端发送过来的一致，则用户登陆成功。否则登陆失败。 </li>
+</ul>
+<p>不用AES加密，用RSA公钥加密也是可以的。AES速度比RSA要快，RSA只能存储有限的数据。</p>
+<p><img src="/img/app-login.png" alt></p>
+<h2 id="其它的一些东东"><a href="#其它的一些东东" class="headerlink" title="其它的一些东东"></a>其它的一些东东</h2><p>多次md5或者md5 + sha1是没什么效果的。</p>
+<p>RSA算法最好选择2048位的。搜索” rsa 1024 crack”有很多相关的结果，google已经将其SSL用的RSA算法升级为2048位的。</p>
+<p>如何防止登陆过程的中间人攻击，可以参考，魔兽世界的叫SPR6的登陆算法。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>对于网页登陆，可以考虑支持多种方式：</p>
+<ul>
+<li>不支持JS的，用原始密码登陆。</li>
+<li>支持JS的，可以考虑传递hash算法加密字符串。严格要求的应用，最好用JS实现RSA加密。在github上找到的一个JS RSA库：<a href="https://github.com/travist/jsencrypt" target="_blank" rel="noopener">https://github.com/travist/jsencrypt</a></li>
+<li>客户端应用，一律应当用RSA算法，并加盐来保存用户密码。单纯的hash或者对称加密算法都不靠谱。</li>
+</ul>
+<p>服务器用salt（存数据库的） + hash算法来保存用户的密码。</p>
+<p>用salt（存缓存的，注意和上一行的salt是不同的）+ RSA算法来加密用户登陆的凭证。</p>
+<p>这样服务器可以灵活控制风险，控制用户登陆凭据的有效期，即使用户数据泄露，也不需要修改密码。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/app/" rel="tag"># app</a>
+          
+            <a href="/tags/security/" rel="tag"># security</a>
+          
+            <a href="/tags/password/" rel="tag"># password</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/about-kryo/" rel="next" title="Kryo简介及代码阅读笔记">
+                <i class="fa fa-chevron-left"></i> Kryo简介及代码阅读笔记
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/cpp-boost-bind/" rel="prev" title="详细解析boost中bind的实现">
+                详细解析boost中bind的实现 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#更新"><span class="nav-number">1.</span> <span class="nav-text">更新</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#背景"><span class="nav-number">2.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#先看下一些软件是如何保存用户密码的"><span class="nav-number">3.</span> <span class="nav-text">先看下一些软件是如何保存用户密码的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#用户密码该如何保存，还有能做到哪种程度？"><span class="nav-number">4.</span> <span class="nav-text">用户密码该如何保存，还有能做到哪种程度？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#加盐-salt"><span class="nav-number">5.</span> <span class="nav-text">加盐(salt)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#客户端本地存储密码的算法"><span class="nav-number">6.</span> <span class="nav-text">客户端本地存储密码的算法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#如何防止本地加密串泄露之后，攻击者可能潜伏很久？"><span class="nav-number">7.</span> <span class="nav-text">如何防止本地加密串泄露之后，攻击者可能潜伏很久？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#具体的登陆流程"><span class="nav-number">8.</span> <span class="nav-text">具体的登陆流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#浏览器登陆的流程"><span class="nav-number">8.1.</span> <span class="nav-text">浏览器登陆的流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#App登陆保存数据流程"><span class="nav-number">8.2.</span> <span class="nav-text">App登陆保存数据流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#App第一次登陆流程"><span class="nav-number">8.3.</span> <span class="nav-text">App第一次登陆流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#App自动登陆的流程"><span class="nav-number">8.4.</span> <span class="nav-text">App自动登陆的流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其它的一些东东"><span class="nav-number">9.</span> <span class="nav-text">其它的一些东东</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">10.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

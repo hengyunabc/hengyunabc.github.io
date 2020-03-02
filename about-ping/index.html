@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言ping是基于ICMP（Internet Control Message Protocol）协议实现的，而ICMP协议是在IP层实现的。 ping实际上是发起者发送一个Echo Request(type = 8)的，远程主机回应一个Echo Reply(type = 0)的过程。 为什么用ping不能测试某一个端口刚开始接触网络的时候，可能很多人都有疑问，怎么用ping来测试远程主机的某个特定">
+<meta name="keywords" content="ping,network,udp,ICMP">
+<meta property="og:type" content="article">
+<meta property="og:title" content="扯谈网络编程之自己实现ping">
+<meta property="og:url" content="http://hengyunabc.github.io/about-ping/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言ping是基于ICMP（Internet Control Message Protocol）协议实现的，而ICMP协议是在IP层实现的。 ping实际上是发起者发送一个Echo Request(type = 8)的，远程主机回应一个Echo Reply(type = 0)的过程。 为什么用ping不能测试某一个端口刚开始接触网络的时候，可能很多人都有疑问，怎么用ping来测试远程主机的某个特定">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="扯谈网络编程之自己实现ping">
+<meta name="twitter:description" content="前言ping是基于ICMP（Internet Control Message Protocol）协议实现的，而ICMP协议是在IP层实现的。 ping实际上是发起者发送一个Echo Request(type = 8)的，远程主机回应一个Echo Reply(type = 0)的过程。 为什么用ping不能测试某一个端口刚开始接触网络的时候，可能很多人都有疑问，怎么用ping来测试远程主机的某个特定">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/about-ping/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>扯谈网络编程之自己实现ping | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/about-ping/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">扯谈网络编程之自己实现ping
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2014-05-03 05:58:28" itemprop="dateCreated datePublished" datetime="2014-05-03T05:58:28+00:00">2014-05-03</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>ping是基于ICMP（Internet Control Message Protocol）协议实现的，而ICMP协议是在IP层实现的。</p>
+<p>ping实际上是发起者发送一个Echo Request(type = 8)的，远程主机回应一个Echo Reply(type = 0)的过程。</p>
+<h2 id="为什么用ping不能测试某一个端口"><a href="#为什么用ping不能测试某一个端口" class="headerlink" title="为什么用ping不能测试某一个端口"></a>为什么用ping不能测试某一个端口</h2><p>刚开始接触网络的时候，可能很多人都有疑问，怎么用ping来测试远程主机的某个特定端口？</p>
+<p>其实如果看下ICMP协议，就可以发现ICMP里根本没有端口这个概念，也就根本无法实现测试某一个端口了。</p>
+<p>ICMP协议的包格式可以直接参考wiki： <a href="https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet" target="_blank" rel="noopener">https://en.wikipedia.org/wiki/Ping_(networking_utility)#ICMP_packet</a></p>
+<h2 id="Ping如何计算请问耗时"><a href="#Ping如何计算请问耗时" class="headerlink" title="Ping如何计算请问耗时"></a>Ping如何计算请问耗时</h2><p>在ping命令的输出上，可以看到有显示请求的耗时，那么这个耗时是怎么得到的呢？</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">64 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=6.28 ms</span><br></pre></td></tr></table></figure>
+<p>从Echo Request的格式里，看到不时间相关的东东，但是因为是Echo，即远程主机会原样返回Data数据，所以Ping的发起方把时间放到了Data数据里，当得到Echo Reply里，取到发送时间，再和当前时间比较，就可以得到耗时了。当然，还有其它的思路，比如记录每一个包的发送时间，当得到返回时，再计算得到时间差，但显然这样的实现太复杂了。</p>
+<h2 id="Ping如何区分不同的进程？"><a href="#Ping如何区分不同的进程？" class="headerlink" title="Ping如何区分不同的进程？"></a>Ping如何区分不同的进程？</h2><p>我们都知道本机IP，远程IP，本机端口，远程端口，四个元素才可以确定唯的一个信道。而ICMP里没有端口，那么一个ping程序如何知道哪些包才是发给自己的？或者说操作系统如何区别哪个Echo Reply是要发给哪个进程的？</p>
+<p><strong>实际上操作系统不能区别，所有的本机IP，远程IP相同的ICMP程序都可以接收到同一份数据。</strong></p>
+<p>程序自己要根据Identifier来区分到底一个ICMP包是不是发给自己的。在Linux下，Ping发出去的Echo Request包里Identifier就是进程pid，远程主机会返回一个Identifier相同的Echo Reply包。</p>
+<p>可以接下面的方法简单验证：</p>
+<p>启动系统自带的ping程序，查看其pid。</p>
+<p>设定自己实现的ping程序的identifier为上面得到的pid，然后发Echo Request包。</p>
+<p>可以发现系统ping程序会接收到远程主机的回应。</p>
+<h2 id="自己实现ping"><a href="#自己实现ping" class="headerlink" title="自己实现ping"></a>自己实现ping</h2><p>自己实现ping要用到rawsocket，在linux下需要root权限。网上有很多实现的程序，但是有很多地方不太对的。自己总结实现了一个（最好用g++编绎）：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;errno.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/ip.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/time.h&gt;</span></span></span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">unsigned</span> short <span class="title">csum</span><span class="params">(<span class="keyword">unsigned</span> short *ptr, <span class="keyword">int</span> nbytes)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">register</span> <span class="keyword">long</span> sum;</span><br><span class="line">	<span class="keyword">unsigned</span> short oddbyte;</span><br><span class="line">	<span class="keyword">register</span> short answer;</span><br><span class="line"> </span><br><span class="line">	sum = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">while</span> (nbytes &gt; <span class="number">1</span>) &#123;</span><br><span class="line">		sum += *ptr++;</span><br><span class="line">		nbytes -= <span class="number">2</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (nbytes == <span class="number">1</span>) &#123;</span><br><span class="line">		oddbyte = <span class="number">0</span>;</span><br><span class="line">		*((u_char*) &amp;oddbyte) = *(u_char*) ptr;</span><br><span class="line">		sum += oddbyte;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	sum = (sum &gt;&gt; <span class="number">16</span>) + (sum &amp; <span class="number">0xffff</span>);</span><br><span class="line">	sum = sum + (sum &gt;&gt; <span class="number">16</span>);</span><br><span class="line">	answer = (short) ~sum;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> (answer);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">inline</span> <span class="keyword">double</span> <span class="title">countMs</span><span class="params">(timeval before, timeval after)</span></span>&#123;</span><br><span class="line">	<span class="keyword">return</span> (after.tv_sec - before.tv_sec)*<span class="number">1000</span> + (after.tv_usec - before.tv_usec)/<span class="number">1000.0</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> pack(1)</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">EchoPacket</span> &#123;</span></span><br><span class="line">	<span class="keyword">u_int8_t</span> type;</span><br><span class="line">	<span class="keyword">u_int8_t</span> code;</span><br><span class="line">	<span class="keyword">u_int16_t</span> checksum;</span><br><span class="line">	<span class="keyword">u_int16_t</span> identifier;</span><br><span class="line">	<span class="keyword">u_int16_t</span> sequence;</span><br><span class="line">	timeval timestamp;</span><br><span class="line">	<span class="keyword">char</span> data[<span class="number">40</span>];   <span class="comment">//sizeof(EchoPacket) == 64</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> pack()</span></span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">ping</span><span class="params">(<span class="keyword">in_addr_t</span> source, <span class="keyword">in_addr_t</span> destination)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">int</span> sequence = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">int</span> pid = getpid();</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">int</span> ipId = <span class="number">0</span>;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">char</span> sendBuf[<span class="keyword">sizeof</span>(iphdr) + <span class="keyword">sizeof</span>(EchoPacket)] = &#123; <span class="number">0</span> &#125;;</span><br><span class="line"> </span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">iphdr</span>* <span class="title">ipHeader</span> = (<span class="title">iphdr</span>*)<span class="title">sendBuf</span>;</span></span><br><span class="line">	ipHeader-&gt;version = <span class="number">4</span>;</span><br><span class="line">	ipHeader-&gt;ihl = <span class="number">5</span>;</span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;tos = <span class="number">0</span>;</span><br><span class="line">	ipHeader-&gt;tot_len = htons(<span class="keyword">sizeof</span>(sendBuf));</span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;id = htons(ipId++);</span><br><span class="line">	ipHeader-&gt;frag_off = htons(<span class="number">0x4000</span>);  <span class="comment">//set Flags: don't fragment</span></span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;ttl = <span class="number">64</span>;</span><br><span class="line">	ipHeader-&gt;protocol = IPPROTO_ICMP;</span><br><span class="line">	ipHeader-&gt;check = <span class="number">0</span>;</span><br><span class="line">	ipHeader-&gt;saddr = source;</span><br><span class="line">	ipHeader-&gt;daddr = destination;</span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;check = csum((<span class="keyword">unsigned</span> short*)ipHeader, ipHeader-&gt;ihl * <span class="number">2</span>);</span><br><span class="line"> </span><br><span class="line">	EchoPacket* echoRequest = (EchoPacket*)(sendBuf + <span class="keyword">sizeof</span>(iphdr));</span><br><span class="line">	echoRequest-&gt;type = <span class="number">8</span>;</span><br><span class="line">	echoRequest-&gt;code = <span class="number">0</span>;</span><br><span class="line">	echoRequest-&gt;checksum = <span class="number">0</span>;</span><br><span class="line">	echoRequest-&gt;identifier = htons(pid);</span><br><span class="line">	echoRequest-&gt;sequence = htons(sequence++);</span><br><span class="line">	gettimeofday(&amp;(echoRequest-&gt;timestamp), <span class="literal">NULL</span>);</span><br><span class="line">	<span class="keyword">u_int16_t</span> ccsum = csum((<span class="keyword">unsigned</span> short*)echoRequest, <span class="keyword">sizeof</span>(sendBuf) - <span class="keyword">sizeof</span>(iphdr));</span><br><span class="line"> </span><br><span class="line">	echoRequest-&gt;checksum = ccsum;</span><br><span class="line"> </span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">sin</span>;</span></span><br><span class="line">	<span class="built_in">sin</span>.sin_family = AF_INET;</span><br><span class="line">	<span class="built_in">sin</span>.sin_port = htons(<span class="number">0</span>);</span><br><span class="line">	<span class="built_in">sin</span>.sin_addr.s_addr = destination;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">int</span> s = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);</span><br><span class="line">	<span class="keyword">if</span> (s == <span class="number">-1</span>) &#123;</span><br><span class="line">		perror(<span class="string">"socket"</span>);</span><br><span class="line">		<span class="keyword">return</span>;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="comment">//IP_HDRINCL to tell the kernel that headers are included in the packet</span></span><br><span class="line">	<span class="keyword">if</span> (setsockopt(s, IPPROTO_IP, IP_HDRINCL, <span class="string">"1"</span>,<span class="keyword">sizeof</span>(<span class="string">"1"</span>)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">		perror(<span class="string">"Error setting IP_HDRINCL"</span>);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	sendto(s, sendBuf, <span class="keyword">sizeof</span>(sendBuf), <span class="number">0</span>, (struct sockaddr *) &amp;<span class="built_in">sin</span>, <span class="keyword">sizeof</span>(<span class="built_in">sin</span>));</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">char</span> responseBuf[<span class="keyword">sizeof</span>(iphdr) + <span class="keyword">sizeof</span>(EchoPacket)] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line"> </span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">receiveAddress</span>;</span></span><br><span class="line">	<span class="keyword">socklen_t</span> len = <span class="keyword">sizeof</span>(receiveAddress);</span><br><span class="line">	<span class="keyword">int</span> reveiveSize = recvfrom(s, (<span class="keyword">void</span>*)responseBuf, <span class="keyword">sizeof</span>(responseBuf), <span class="number">0</span>, (struct sockaddr *) &amp;receiveAddress, &amp;len);</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">if</span>(reveiveSize == <span class="keyword">sizeof</span>(responseBuf))&#123;</span><br><span class="line">		EchoPacket* echoResponse = (EchoPacket*) (responseBuf + <span class="keyword">sizeof</span>(iphdr));</span><br><span class="line">		<span class="comment">//TODO check identifier == pid ?</span></span><br><span class="line">		<span class="keyword">if</span>(echoResponse-&gt;type == <span class="number">0</span>)&#123;</span><br><span class="line">			<span class="class"><span class="keyword">struct</span> <span class="title">timeval</span> <span class="title">tv</span>;</span></span><br><span class="line">			gettimeofday(&amp;tv, <span class="literal">NULL</span>);</span><br><span class="line"> </span><br><span class="line">			in_addr tempAddr;</span><br><span class="line">			tempAddr.s_addr = destination;</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">"%d bytes from %s : icmp_seq=%d ttl=%d time=%.2f ms\n"</span>,</span><br><span class="line">					<span class="keyword">sizeof</span>(EchoPacket),</span><br><span class="line">					inet_ntoa(tempAddr),</span><br><span class="line">					ntohs(echoResponse-&gt;sequence),</span><br><span class="line">					((iphdr*)responseBuf)-&gt;ttl,</span><br><span class="line">					countMs(echoResponse-&gt;timestamp, tv));</span><br><span class="line">		&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">			<span class="built_in">printf</span>(<span class="string">"response error, type:%d\n"</span>, echoResponse-&gt;type);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">"error, response size != request size.\n"</span>);</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	close(s);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">in_addr_t</span> source = inet_addr(<span class="string">"192.168.1.100"</span>);</span><br><span class="line">	<span class="keyword">in_addr_t</span> destination = inet_addr(<span class="string">"192.168.1.1"</span>);</span><br><span class="line">	<span class="keyword">for</span>(;;)&#123;</span><br><span class="line">		ping(source, destination);</span><br><span class="line">		sleep(<span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="安全相关的一些东东"><a href="#安全相关的一些东东" class="headerlink" title="安全相关的一些东东"></a>安全相关的一些东东</h2><ul>
+<li>死亡之Ping  <a href="http://zh.wikipedia.org/wiki/%E6%AD%BB%E4%BA%A1%E4%B9%8BPing" target="_blank" rel="noopener">http://zh.wikipedia.org/wiki/%E6%AD%BB%E4%BA%A1%E4%B9%8BPing</a></li>
+</ul>
+<p>尽管是很老的漏洞，但是也可以看出协议栈的实现也不是那么的靠谱。</p>
+<ul>
+<li>Ping flood   <a href="http://en.wikipedia.org/wiki/Ping_flood" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/Ping_flood</a></li>
+</ul>
+<p>服务器关闭ping服务，默认是0,是开启：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo 1 &gt; /proc/sys/net/ipv4/icmp_echo_ignore_all</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在自己实现的过程中，发现有一些蛋疼的地方，如</p>
+<p>协议文档不够清晰，得反复对照；</p>
+<p>有时候一个小地方处理不对，很难查bug，即使程序能正常工作，但也并不代表它是正确的；</p>
+<p>用wireshark可以很方便验证自己写的程序有没有问题。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><p><a href="http://en.wikipedia.org/wiki/Ping_(networking_utility)" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/Ping_(networking_utility)</a></p>
+</li>
+<li><p><a href="http://en.wikipedia.org/wiki/ICMP_Destination_Unreachable" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/ICMP_Destination_Unreachable</a></p>
+</li>
+<li><p><a href="http://tools.ietf.org/pdf/rfc792.pdf" target="_blank" rel="noopener">http://tools.ietf.org/pdf/rfc792.pdf</a></p>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/ping/" rel="tag"># ping</a>
+          
+            <a href="/tags/network/" rel="tag"># network</a>
+          
+            <a href="/tags/udp/" rel="tag"># udp</a>
+          
+            <a href="/tags/ICMP/" rel="tag"># ICMP</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/spring-xsd/" rel="next" title="为什么在Spring的配置里，最好不要配置xsd文件的版本号">
+                <i class="fa fa-chevron-left"></i> 为什么在Spring的配置里，最好不要配置xsd文件的版本号
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/memcached-cache-db/" rel="prev" title="应对Memcached缓存失效，导致高并发查询DB的几种思路">
+                应对Memcached缓存失效，导致高并发查询DB的几种思路 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#为什么用ping不能测试某一个端口"><span class="nav-number">2.</span> <span class="nav-text">为什么用ping不能测试某一个端口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ping如何计算请问耗时"><span class="nav-number">3.</span> <span class="nav-text">Ping如何计算请问耗时</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Ping如何区分不同的进程？"><span class="nav-number">4.</span> <span class="nav-text">Ping如何区分不同的进程？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#自己实现ping"><span class="nav-number">5.</span> <span class="nav-text">自己实现ping</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安全相关的一些东东"><span class="nav-number">6.</span> <span class="nav-text">安全相关的一些东东</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">8.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

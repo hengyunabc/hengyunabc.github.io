@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="jdk9后加载lib/modules的方式从jdk的代码里可以看出来，默认的实现加载lib/modules是用mmap来加载的。 12345678910111213class NativeImageBuffer &amp;#123;    static &amp;#123;        java.security.AccessController.doPrivileged(                new">
+<meta name="keywords" content="java,java9,linux,mmap">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从java9共享内存加载modules说起">
+<meta property="og:url" content="http://hengyunabc.github.io/java9-mmap-load-modules/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="jdk9后加载lib/modules的方式从jdk的代码里可以看出来，默认的实现加载lib/modules是用mmap来加载的。 12345678910111213class NativeImageBuffer &amp;#123;    static &amp;#123;        java.security.AccessController.doPrivileged(                new">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="从java9共享内存加载modules说起">
+<meta name="twitter:description" content="jdk9后加载lib/modules的方式从jdk的代码里可以看出来，默认的实现加载lib/modules是用mmap来加载的。 12345678910111213class NativeImageBuffer &amp;#123;    static &amp;#123;        java.security.AccessController.doPrivileged(                new">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/java9-mmap-load-modules/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>从java9共享内存加载modules说起 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/java9-mmap-load-modules/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">从java9共享内存加载modules说起
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-02-23 16:01:41" itemprop="dateCreated datePublished" datetime="2018-02-23T16:01:41+00:00">2018-02-23</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="jdk9后加载lib-modules的方式"><a href="#jdk9后加载lib-modules的方式" class="headerlink" title="jdk9后加载lib/modules的方式"></a>jdk9后加载lib/modules的方式</h2><p>从jdk的代码里可以看出来，默认的实现加载<code>lib/modules</code>是用mmap来加载的。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">class NativeImageBuffer &#123;</span><br><span class="line">    static &#123;</span><br><span class="line">        java.security.AccessController.doPrivileged(</span><br><span class="line">                new java.security.PrivilegedAction&lt;Void&gt;() &#123;</span><br><span class="line">                    public Void run() &#123;</span><br><span class="line">                        System.loadLibrary(&quot;jimage&quot;);</span><br><span class="line">                        return null;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    native static ByteBuffer getNativeMap(String imagePath);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在jimage动态库里最终是一个cpp实现的<code>ImageFileReader</code>来读取的。它在64位os上使用的是mmap方式：</p>
+<p><a href="https://github.com/dmlloyd/openjdk/blob/jdk/jdk10/src/java.base/share/native/libjimage/imageFile.cpp#L44" target="_blank" rel="noopener">https://github.com/dmlloyd/openjdk/blob/jdk/jdk10/src/java.base/share/native/libjimage/imageFile.cpp#L44</a></p>
+<p>通过共享内存启动多个jvm时会有好处：</p>
+<ul>
+<li>减少内存占用</li>
+<li>加快启动速度</li>
+</ul>
+<p><strong>突然有个想法，怎么验证多个jvm的确共享了内存？</strong> </p>
+<p>下面来验证一下，思路是：</p>
+<ol>
+<li>先获取进程的mmap信息</li>
+<li>获取jvm进程映射<code>modules</code>的虚拟地址</li>
+<li>从虚拟地址转换为物理地址</li>
+<li>启动两个jvm进程，计算它们映射<code>modules</code>是否物理地址是一样的</li>
+</ol>
+<h3 id="linux下查看进程的mmap信息"><a href="#linux下查看进程的mmap信息" class="headerlink" title="linux下查看进程的mmap信息"></a>linux下查看进程的mmap信息</h3><ol>
+<li>使用<code>pmap -x $pid</code>命令</li>
+<li>直接查看 <code>cat /proc/$pid/maps</code>文件的内容</li>
+</ol>
+<p>启动一个jshell之后，用pmap查看mmap信息，其中RSS（resident set size）列表示真实占用的内存。：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ pmap -x 24615</span><br><span class="line">24615:   jdk9/jdk-9.0.4/bin/jshell</span><br><span class="line">Address           Kbytes     RSS   Dirty Mode  Mapping</span><br><span class="line">0000000000400000       4       4       0 r-x-- jshell</span><br><span class="line">0000000000601000       4       4       4 rw--- jshell</span><br><span class="line">000000000111b000     132     120     120 rw---   [ anon ]</span><br><span class="line">...</span><br><span class="line">00007f764192c000      88      64       0 r-x-- libnet.so</span><br><span class="line">00007f7641942000    2048       0       0 ----- libnet.so</span><br><span class="line">00007f7641b42000       4       4       4 rw--- libnet.so</span><br><span class="line">00007f7641b43000    2496     588     588 rwx--   [ anon ]</span><br><span class="line">...</span><br><span class="line">00007f7650b43000  185076    9880       0 r--s- modules</span><br><span class="line">00007f765c000000    5172    5124    5124 rw---   [ anon ]</span><br><span class="line"></span><br><span class="line">---------------- ------- ------- -------</span><br><span class="line">total kB         2554068  128756  106560</span><br></pre></td></tr></table></figure>
+<p>我们可以找到<code>modules</code>文件的信息：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">00007f7650b43000  185076    9880       0 r--s- modules</span><br></pre></td></tr></table></figure>
+<p>它的文件映射大小是185076kb，实际使用内存大小是9880kb。</p>
+<h3 id="linux-kernel关于pagemap的说明"><a href="#linux-kernel关于pagemap的说明" class="headerlink" title="linux kernel关于pagemap的说明"></a>linux kernel关于pagemap的说明</h3><p>上面我们获取到了<code>modules</code>的虚拟地址，但是还需要转换为物理地址。</p>
+<p>正常来说一个进程是没有办法知道它自己的虚拟地址对应的是什么物理地址。不过我们用linux kernel提供的信息可以读取，转换为物理地址。</p>
+<p>linux每个进程都有个<code>/proc/$pid/pagemap</code>文件，里面记录了内存页的信息：</p>
+<p><a href="https://www.kernel.org/doc/Documentation/vm/pagemap.txt" target="_blank" rel="noopener">https://www.kernel.org/doc/Documentation/vm/pagemap.txt</a></p>
+<p>简而言之，在pagemap里每一个virtual page都有一个对应的64 bit的信息：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">* Bits 0-54  page frame number (PFN) if present</span><br><span class="line">* Bits 0-4   swap type if swapped</span><br><span class="line">* Bits 5-54  swap offset if swapped</span><br><span class="line">* Bit  55    pte is soft-dirty (see Documentation/vm/soft-dirty.txt)</span><br><span class="line">* Bit  56    page exclusively mapped (since 4.2)</span><br><span class="line">* Bits 57-60 zero</span><br><span class="line">* Bit  61    page is file-page or shared-anon (since 3.5)</span><br><span class="line">* Bit  62    page swapped</span><br><span class="line">* Bit  63    page present</span><br></pre></td></tr></table></figure>
+<p>只要把虚拟地址转换为pagemap文件里的offset，就可以读取具体的virtual page信息。计算方法是：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// getpagesize()是系统调用</span></span><br><span class="line"><span class="comment">// 64bit是8字节</span></span><br><span class="line"><span class="keyword">long</span> virtualPageIndex = virtualAddress / getpagesize()</span><br><span class="line">offset = virtualPageIndex * <span class="number">8</span></span><br></pre></td></tr></table></figure>
+<p>从offset里读取出来的64bit里，可以获取到page frame number，如果想要得到真正的物理地址，还需要再转换：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// pageFrameNumber * getpagesize() 获取page的开始地址</span></span><br><span class="line"><span class="comment">// virtualAddress % getpagesize() 获取到page里的偏移地址</span></span><br><span class="line"><span class="keyword">long</span> pageFrameNumber = <span class="comment">// read from pagemap file</span></span><br><span class="line">physicalAddress = pageFrameNumber * getpagesize() + virtualAddress % getpagesize();</span><br></pre></td></tr></table></figure>
+<h3 id="虚拟地址转换物理地址的代码"><a href="#虚拟地址转换物理地址的代码" class="headerlink" title="虚拟地址转换物理地址的代码"></a>虚拟地址转换物理地址的代码</h3><p>参考这里的代码：<a href="https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/kernel_module/user/common.h" target="_blank" rel="noopener">https://github.com/cirosantilli/linux-kernel-module-cheat/blob/master/kernel_module/user/common.h</a></p>
+<p>得到的一个从虚拟地址转换为物理地址的代码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> _POSIX_C_SOURCE 200809L</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fcntl.h&gt; /* open */</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdint.h&gt; /* uint64_t  */</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt; /* size_t */</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt; /* pread, sysconf */</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span> BUFSIZ = <span class="number">1024</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">    <span class="keyword">uint64_t</span> pfn : <span class="number">54</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span> soft_dirty : <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span> file_page : <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span> swapped : <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">int</span> present : <span class="number">1</span>;</span><br><span class="line">&#125; PagemapEntry;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Parse the pagemap entry for the given virtual address.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param[out] entry      the parsed entry</span></span><br><span class="line"><span class="comment"> * @param[in]  pagemap_fd file descriptor to an open /proc/pid/pagemap file</span></span><br><span class="line"><span class="comment"> * @param[in]  vaddr      virtual address to get entry for</span></span><br><span class="line"><span class="comment"> * @return 0 for success, 1 for failure</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">pagemap_get_entry</span><span class="params">(PagemapEntry *entry, <span class="keyword">int</span> pagemap_fd, <span class="keyword">uintptr_t</span> vaddr)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">size_t</span> nread;</span><br><span class="line">    <span class="keyword">ssize_t</span> ret;</span><br><span class="line">    <span class="keyword">uint64_t</span> data;</span><br><span class="line"></span><br><span class="line">    nread = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> (nread &lt; <span class="keyword">sizeof</span>(data)) &#123;</span><br><span class="line">        ret = pread(pagemap_fd, &amp;data, <span class="keyword">sizeof</span>(data),</span><br><span class="line">                (vaddr / sysconf(_SC_PAGE_SIZE)) * <span class="keyword">sizeof</span>(data) + nread);</span><br><span class="line">        nread += ret;</span><br><span class="line">        <span class="keyword">if</span> (ret &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    entry-&gt;pfn = data &amp; (((<span class="keyword">uint64_t</span>)<span class="number">1</span> &lt;&lt; <span class="number">54</span>) - <span class="number">1</span>);</span><br><span class="line">    entry-&gt;soft_dirty = (data &gt;&gt; <span class="number">54</span>) &amp; <span class="number">1</span>;</span><br><span class="line">    entry-&gt;file_page = (data &gt;&gt; <span class="number">61</span>) &amp; <span class="number">1</span>;</span><br><span class="line">    entry-&gt;swapped = (data &gt;&gt; <span class="number">62</span>) &amp; <span class="number">1</span>;</span><br><span class="line">    entry-&gt;present = (data &gt;&gt; <span class="number">63</span>) &amp; <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Convert the given virtual address to physical using /proc/PID/pagemap.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * @param[out] paddr physical address</span></span><br><span class="line"><span class="comment"> * @param[in]  pid   process to convert for</span></span><br><span class="line"><span class="comment"> * @param[in] vaddr virtual address to get entry for</span></span><br><span class="line"><span class="comment"> * @return 0 for success, 1 for failure</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">virt_to_phys_user</span><span class="params">(<span class="keyword">uintptr_t</span> *paddr, <span class="keyword">pid_t</span> pid, <span class="keyword">uintptr_t</span> vaddr)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">char</span> pagemap_file[BUFSIZ];</span><br><span class="line">    <span class="keyword">int</span> pagemap_fd;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">snprintf</span>(pagemap_file, <span class="keyword">sizeof</span>(pagemap_file), <span class="string">"/proc/%ju/pagemap"</span>, (<span class="keyword">uintmax_t</span>)pid);</span><br><span class="line">    pagemap_fd = open(pagemap_file, O_RDONLY);</span><br><span class="line">    <span class="keyword">if</span> (pagemap_fd &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    PagemapEntry entry;</span><br><span class="line">    <span class="keyword">if</span> (pagemap_get_entry(&amp;entry, pagemap_fd, vaddr)) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    close(pagemap_fd);</span><br><span class="line">    *paddr = (entry.pfn * sysconf(_SC_PAGE_SIZE)) + (vaddr % sysconf(_SC_PAGE_SIZE));</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> ** argv)</span></span>&#123;</span><br><span class="line">    <span class="keyword">char</span> *end;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> pid;</span><br><span class="line">    <span class="keyword">uintptr_t</span> virt_addr;</span><br><span class="line">    <span class="keyword">uintptr_t</span> paddr;</span><br><span class="line">    <span class="keyword">int</span> return_code;</span><br><span class="line"></span><br><span class="line">    pid = strtol(argv[<span class="number">1</span>],&amp;end, <span class="number">10</span>);</span><br><span class="line">    virt_addr = strtol(argv[<span class="number">2</span>], <span class="literal">NULL</span>, <span class="number">16</span>);</span><br><span class="line"></span><br><span class="line">    return_code = virt_to_phys_user(&amp;paddr, pid, virt_addr);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(return_code == <span class="number">0</span>)</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"Vaddr: 0x%lx, paddr: 0x%lx \n"</span>, virt_addr, paddr);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"error\n"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>另外，收集到一些可以读取pagemap信息的工具：</p>
+<ul>
+<li><a href="https://github.com/dwks/pagemap" target="_blank" rel="noopener">https://github.com/dwks/pagemap</a></li>
+</ul>
+<h3 id="检查两个jvm进程是否映射modules的物理地址一致"><a href="#检查两个jvm进程是否映射modules的物理地址一致" class="headerlink" title="检查两个jvm进程是否映射modules的物理地址一致"></a>检查两个jvm进程是否映射<code>modules</code>的物理地址一致</h3><ol>
+<li><p>先启动两个jshell</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ jps</span><br><span class="line">25105 jdk.internal.jshell.tool.JShellToolProvider</span><br><span class="line">25142 jdk.internal.jshell.tool.JShellToolProvider</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>把上面转换地址的代码保存为<code>mymap.c</code>，再编绎</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gcc mymap.c -o mymap</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>获取两个jvm的modules的虚拟地址，并转换为物理地址</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ pmap -x 25105 | grep modules</span><br><span class="line">00007f82b4b43000  185076    9880       0 r--s- modules</span><br><span class="line">$ sudo ./mymap 25105 00007f82b4b43000</span><br><span class="line">Vaddr: 0x7f82b4b43000, paddr: 0x33598000</span><br><span class="line"></span><br><span class="line">$ pmap -x 25142 | grep modules</span><br><span class="line">00007ff220504000  185076   10064       0 r--s- modules</span><br><span class="line">$ sudo ./mymap 25142 00007ff220504000</span><br><span class="line">Vaddr: 0x7ff220504000, paddr: 0x33598000</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<p>可以看到两个jvm进程映射<code>modules</code>的物理地址是一样的，证实了最开始的想法。</p>
+<h3 id="kernel-里的-page-types-工具"><a href="#kernel-里的-page-types-工具" class="headerlink" title="kernel 里的 page-types 工具"></a>kernel 里的 page-types 工具</h3><p>其实在kernel里自带有一个工具<code>page-types</code>可以输出一个page信息，可以通过下面的方式来获取内核源码，然后自己编绎：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get <span class="built_in">source</span> linux-image-$(uname -r)</span><br><span class="line">sudo apt-get build-dep linux-image-$(uname -r)</span><br></pre></td></tr></table></figure>
+<p>到<code>tools/vm</code>目录下面，可以直接<code>sudo make</code>编绎。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">sudo ./page-types -p 25105</span><br><span class="line">             flags	page-count       MB  symbolic-flags			long-symbolic-flags</span><br><span class="line">0x0000000000000000	         2        0  ____________________________________</span><br><span class="line">0x0000000000400000	     14819       57  ______________________t_____________	thp</span><br><span class="line">0x0000000000000800	         1        0  ___________M________________________	mmap</span><br><span class="line">0x0000000000000828	        33        0  ___U_l_____M________________________	uptodate,lru,mmap</span><br><span class="line">0x000000000000086c	       663        2  __RU_lA____M________________________	referenced,uptodate,lru,active,mmap</span><br><span class="line">0x000000000000087c	         2        0  __RUDlA____M________________________	referenced,uptodate,dirty,lru,active,mmap</span><br><span class="line">0x0000000000005868	     10415       40  ___U_lA____Ma_b_____________________	uptodate,lru,active,mmap,anonymous,swapbacked</span><br><span class="line">0x0000000000405868	        29        0  ___U_lA____Ma_b_______t_____________	uptodate,lru,active,mmap,anonymous,swapbacked,thp</span><br><span class="line">0x000000000000586c	         5        0  __RU_lA____Ma_b_____________________	referenced,uptodate,lru,active,mmap,anonymous,swapbacked</span><br><span class="line">0x0000000000005878	       356        1  ___UDlA____Ma_b_____________________	uptodate,dirty,lru,active,mmap,anonymous,swapbacked</span><br><span class="line">             total	     26325      102</span><br></pre></td></tr></table></figure>
+<h3 id="jdk8及之前加载jar也是使用mmap的方式"><a href="#jdk8及之前加载jar也是使用mmap的方式" class="headerlink" title="jdk8及之前加载jar也是使用mmap的方式"></a>jdk8及之前加载jar也是使用mmap的方式</h3><p>在验证了jdk9加载<code>lib/modules</code>之后，随便检查了下jdk8的进程，发现在加载jar包时，也是使用mmap的方式。</p>
+<p>一个tomcat进程的map信息如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ pmap -x 27226 | grep jar</span><br><span class="line">...</span><br><span class="line">00007f42c00d4000      16      16       0 r--s- tomcat-dbcp.jar</span><br><span class="line">00007f42c09b7000    1892    1892       0 r--s- rt.jar</span><br><span class="line">00007f42c45e5000      76      76       0 r--s- catalina.jar</span><br><span class="line">00007f42c45f8000      12      12       0 r--s- tomcat-i18n-es.jar</span><br><span class="line">00007f42c47da000       4       4       0 r--s- sunec.jar</span><br><span class="line">00007f42c47db000       8       8       0 r--s- websocket-api.jar</span><br><span class="line">00007f42c47dd000       4       4       0 r--s- tomcat-juli.jar</span><br><span class="line">00007f42c47de000       4       4       0 r--s- commons-daemon.jar</span><br><span class="line">00007f42c47df000       4       4       0 r--s- bootstrap.jar</span><br></pre></td></tr></table></figure>
+<p>可以发现一些有意思的点：</p>
+<ul>
+<li>所有jar包的<code>Kbytes</code> 和 <code>RSS(resident set size)</code>是相等的，也就是说整个jar包都被加载到共享内存里了</li>
+<li>从URLClassLoader的实现代码来看，它在加载资源时，需要扫描所有的jar包，所以会导致整个jar都要被加载到内存里</li>
+<li>对比jdk9里的<code>modules</code>，它的<code>RSS</code>并不是很高，原因是JImage的格式设计合理。所以jdk9后，jvm占用真实内存会降低。</li>
+</ul>
+<h3 id="jdk8及之前的-sun-zip-disableMemoryMapping-参数"><a href="#jdk8及之前的-sun-zip-disableMemoryMapping-参数" class="headerlink" title="jdk8及之前的 sun.zip.disableMemoryMapping 参数"></a>jdk8及之前的 sun.zip.disableMemoryMapping 参数</h3><ul>
+<li><p>在jdk6里引入一个 <code>sun.zip.disableMemoryMapping</code>参数，禁止掉利用mmap来加载zip包。<a href="http://www.oracle.com/technetwork/java/javase/documentation/overview-156328.html#6u21-rev-b09" target="_blank" rel="noopener">http://www.oracle.com/technetwork/java/javase/documentation/overview-156328.html#6u21-rev-b09</a></p>
+</li>
+<li><p><a href="https://bugs.openjdk.java.net/browse/JDK-8175192" target="_blank" rel="noopener">https://bugs.openjdk.java.net/browse/JDK-8175192</a> 在jdk9里把这个参数去掉了。因为jdk9之后，jdk本身存在<code>lib/modules</code> 这个文件里了。</p>
+</li>
+</ul>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><ul>
+<li>linux下可以用pmap来获取进程mmap信息</li>
+<li>通过读取<code>/proc/$pid/pagemap</code>可以获取到内存页的信息，并可以把虚拟地址转换为物理地址</li>
+<li>jdk9把类都打包到<code>lib/modules</code>，也就是JImage格式，可以减少真实内存占用</li>
+<li>jdk9多个jvm可以共用<code>lib/modules</code>映射的内存</li>
+<li>默认情况下jdk8及以前是用mmap来加载jar包</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/java9/" rel="tag"># java9</a>
+          
+            <a href="/tags/linux/" rel="tag"># linux</a>
+          
+            <a href="/tags/mmap/" rel="tag"># mmap</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/reading-notes-2017/" rel="next" title="2017读书总结">
+                <i class="fa fa-chevron-left"></i> 2017读书总结
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/spring-boot-ArrayStoreException/" rel="prev" title="深入Spring Boot：怎样排查 java.lang.ArrayStoreException">
+                深入Spring Boot：怎样排查 java.lang.ArrayStoreException <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#jdk9后加载lib-modules的方式"><span class="nav-number">1.</span> <span class="nav-text">jdk9后加载lib/modules的方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#linux下查看进程的mmap信息"><span class="nav-number">1.1.</span> <span class="nav-text">linux下查看进程的mmap信息</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#linux-kernel关于pagemap的说明"><span class="nav-number">1.2.</span> <span class="nav-text">linux kernel关于pagemap的说明</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#虚拟地址转换物理地址的代码"><span class="nav-number">1.3.</span> <span class="nav-text">虚拟地址转换物理地址的代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#检查两个jvm进程是否映射modules的物理地址一致"><span class="nav-number">1.4.</span> <span class="nav-text">检查两个jvm进程是否映射modules的物理地址一致</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#kernel-里的-page-types-工具"><span class="nav-number">1.5.</span> <span class="nav-text">kernel 里的 page-types 工具</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#jdk8及之前加载jar也是使用mmap的方式"><span class="nav-number">1.6.</span> <span class="nav-text">jdk8及之前加载jar也是使用mmap的方式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#jdk8及之前的-sun-zip-disableMemoryMapping-参数"><span class="nav-number">1.7.</span> <span class="nav-text">jdk8及之前的 sun.zip.disableMemoryMapping 参数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">1.8.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

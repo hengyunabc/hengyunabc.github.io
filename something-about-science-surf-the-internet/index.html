@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="知其所以然本文不是教程向，倾向于分析科学上网的一些原理。知其所以然，才能更好地使用工具，也可以创作出自己的工具。 科学上网的工具很多，八仙过海，各显神通，而且综合了各种技术。尝试从以下四个方面来解析一些其中的原理。大致先原理，再工具的顺序。  dns http/https proxy vpn socks proxy  一个http请求发生了什么？这个是个比较流行的面试题，从中可以引出很多的内容。大">
+<meta name="keywords" content="proxy,代理">
+<meta property="og:type" content="article">
+<meta property="og:title" content="科学上网的一些原理">
+<meta property="og:url" content="http://hengyunabc.github.io/something-about-science-surf-the-internet/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="知其所以然本文不是教程向，倾向于分析科学上网的一些原理。知其所以然，才能更好地使用工具，也可以创作出自己的工具。 科学上网的工具很多，八仙过海，各显神通，而且综合了各种技术。尝试从以下四个方面来解析一些其中的原理。大致先原理，再工具的顺序。  dns http/https proxy vpn socks proxy  一个http请求发生了什么？这个是个比较流行的面试题，从中可以引出很多的内容。大">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://hengyunabc.github.io/img/dns-udp-youtube-badresponse-fast.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/dns-tcp-youtube-reset.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/goagent-github-cert.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/xshell-sock5-proxy.png">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="科学上网的一些原理">
+<meta name="twitter:description" content="知其所以然本文不是教程向，倾向于分析科学上网的一些原理。知其所以然，才能更好地使用工具，也可以创作出自己的工具。 科学上网的工具很多，八仙过海，各显神通，而且综合了各种技术。尝试从以下四个方面来解析一些其中的原理。大致先原理，再工具的顺序。  dns http/https proxy vpn socks proxy  一个http请求发生了什么？这个是个比较流行的面试题，从中可以引出很多的内容。大">
+<meta name="twitter:image" content="http://hengyunabc.github.io/img/dns-udp-youtube-badresponse-fast.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/something-about-science-surf-the-internet/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>科学上网的一些原理 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/something-about-science-surf-the-internet/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">科学上网的一些原理
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2015-02-08 10:26:37" itemprop="dateCreated datePublished" datetime="2015-02-08T10:26:37+00:00">2015-02-08</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="知其所以然"><a href="#知其所以然" class="headerlink" title="知其所以然"></a>知其所以然</h2><p>本文不是教程向，倾向于分析科学上网的一些原理。知其所以然，才能更好地使用工具，也可以创作出自己的工具。</p>
+<p>科学上网的工具很多，八仙过海，各显神通，而且综合了各种技术。尝试从以下四个方面来解析一些其中的原理。大致先原理，再工具的顺序。</p>
+<ul>
+<li>dns</li>
+<li>http/https proxy</li>
+<li>vpn</li>
+<li>socks proxy</li>
+</ul>
+<h2 id="一个http请求发生了什么？"><a href="#一个http请求发生了什么？" class="headerlink" title="一个http请求发生了什么？"></a>一个http请求发生了什么？</h2><p>这个是个比较流行的面试题，从中可以引出很多的内容。大致分为下面四个步骤：</p>
+<ul>
+<li>dns解析，得到IP</li>
+<li>向目标IP发起TCP请求</li>
+<li>发送http request</li>
+<li>服务器回应，浏览器解析</li>
+</ul>
+<p>还有很多细节，更多参考：</p>
+<p><a href="http://fex.baidu.com/blog/2014/05/what-happen/" target="_blank" rel="noopener">http://fex.baidu.com/blog/2014/05/what-happen/</a></p>
+<p><a href="http://stackoverflow.com/questions/2092527/what-happens-when-you-type-in-a-url-in-browser" target="_blank" rel="noopener">http://stackoverflow.com/questions/2092527/what-happens-when-you-type-in-a-url-in-browser</a></p>
+<p><a href="http://div.io/topic/609?page=1" target="_blank" rel="noopener">http://div.io/topic/609?page=1</a>  从FE的角度上再看输入url后都发生了什么</p>
+<h2 id="DNS-域名解析"><a href="#DNS-域名解析" class="headerlink" title="DNS/域名解析"></a>DNS/域名解析</h2><p>可以看到dns解析是最初的一步，也是最重要的一步。比如访问亲友，要知道他的正确的住址，才能正确地上门拜访。</p>
+<p>dns有两种协议，一种是UDP（默认），一种是TCP。</p>
+<h3 id="udp-方式，先回应的数据包被当做有效数据"><a href="#udp-方式，先回应的数据包被当做有效数据" class="headerlink" title="udp 方式，先回应的数据包被当做有效数据"></a>udp 方式，先回应的数据包被当做有效数据</h3><p>在linux下可以用dig来检测dns。国内的DNS服务器通常不会返回正常的结果。<br>下面以google的8.8.8.8 dns服务器来做测试，并用wireshark来抓包，分析结果。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dig @8.8.8.8  www.youtube.com</span><br></pre></td></tr></table></figure></p>
+<p><img src="/img/dns-udp-youtube-badresponse-fast.png" alt="dns-udp-youtube"></p>
+<p>从wireshark的结果，可以看到返回了三个结果，<strong>前面两个是错误的，后面的是正确的</strong>。</p>
+<p>但是，对于dns客户端来说，它只会取最快回应的的结果，后面的正确结果被丢弃掉了。<strong>因为中间被插入了污染包，所以即使我们配置了正确的dns服务器，也解析不到正确的IP。</strong></p>
+<h3 id="tcp-方式，有时有效，可能被rest"><a href="#tcp-方式，有时有效，可能被rest" class="headerlink" title="tcp 方式，有时有效，可能被rest"></a>tcp 方式，有时有效，可能被rest</h3><p>再用TCP下的DNS来测试下:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dig @8.8.8.8 +tcp   www.youtube.com</span><br></pre></td></tr></table></figure></p>
+<p><img src="/img/dns-tcp-youtube-reset.png" alt="dns-tcp-youtube-reset"></p>
+<p>从wireshark的结果，可以看出在TCP三次握手成功时，本地发出了一个查询<a href="http://www.youtube.com的dns请求，结果，很快收到了一个RST回应。而RST回应是在TCP连接断开时，才会发出的。所以可以看出，**TCP通讯受到了干扰，DNS客户端因为收到RST回应，认为对方断开了连接，因此也无法收到后面正确的回应数据包了。*" target="_blank" rel="noopener">www.youtube.com的dns请求，结果，很快收到了一个RST回应。而RST回应是在TCP连接断开时，才会发出的。所以可以看出，**TCP通讯受到了干扰，DNS客户端因为收到RST回应，认为对方断开了连接，因此也无法收到后面正确的回应数据包了。*</a>*</p>
+<p>再来看下解析twitter的结果：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dig @8.8.8.8 +tcp  www.twitter.com</span><br></pre></td></tr></table></figure></p>
+<p>结果：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">www.twitter.com.        590     IN      CNAME   twitter.com.</span><br><span class="line">twitter.com.            20      IN      A       199.59.150.7 80</span><br><span class="line">twitter.com.            20      IN      A       199.59.150.7</span><br><span class="line">twitter.com.            20      IN      A       199.59.149.230</span><br><span class="line">twitter.com.            20      IN      A       199.59.150.39</span><br></pre></td></tr></table></figure></p>
+<p>这次返回的IP是正确的。但是尝试用telnet 去连接时，会发现连接不上。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">telnet 199.59.150.7 80</span><br></pre></td></tr></table></figure></p>
+<p>但是，在国外服务器去连接时，可以正常连接，完成一个http请求。<strong>可见一些IP的访问被禁止了</strong>。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ telnet 199.59.150.7 80</span><br><span class="line">Trying 199.59.150.7...</span><br><span class="line">Connected to 199.59.150.7.</span><br><span class="line">Escape character is &apos;^]&apos;.</span><br><span class="line">GET / HTTP/1.0</span><br><span class="line">HOST:www.twitter.com</span><br><span class="line"></span><br><span class="line">HTTP/1.0 301 Moved Permanently</span><br><span class="line">content-length: 0</span><br><span class="line">date: Sun, 08 Feb 2015 06:28:08 UTC</span><br><span class="line">location: https://www.twitter.com/</span><br><span class="line">server: tsa_a</span><br><span class="line">set-cookie: guest_id=v1%3A142337688883648506; Domain=.twitter.com; Path=/; Expires=Tue, 07-Feb-2017 06:28:08 UTC</span><br><span class="line">x-connection-hash: 0f5eab0ea2d6309109f15447e1da6b13</span><br><span class="line">x-response-time: 2</span><br></pre></td></tr></table></figure></p>
+<h3 id="黑名单-白名单"><a href="#黑名单-白名单" class="headerlink" title="黑名单/白名单"></a>黑名单/白名单</h3><p>想要获取到正确的IP，自然的黑名单/白名单两种思路。</p>
+<p>下面列出一些相关的项目：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">https://github.com/holmium/dnsforwarder</span><br><span class="line">https://code.google.com/p/huhamhire-hosts/</span><br><span class="line">https://github.com/felixonmars/dnsmasq-china-list</span><br></pre></td></tr></table></figure></p>
+<h3 id="本地DNS软件"><a href="#本地DNS软件" class="headerlink" title="本地DNS软件"></a>本地DNS软件</h3><ul>
+<li>修改hosts文件<br>相信大家都很熟悉，也有一些工具可以自动更新hosts文件的。</li>
+<li>浏览器pac文件<br>主流浏览器或者其插件，都可以配置pac文件。pac文件实际上是一个JS文件，可以通过编程的方式来控制dns解析结果。其效果类似hosts文件，不过pac文件通常都是由插件控制自动更新的。只能控制浏览器的dns解析。</li>
+<li>本地dns服务器，dnsmasq<br>在linux下，可以自己配置一个dnsmasq服务器，然后自己管理dns。不过比较高级，也比较麻烦。</li>
+</ul>
+<p>顺便提一下，实际上，kubuntu的NetworkManager会自己启动一个私有的dnsmasq进程来做dns解析。不过它侦听的是127.0.1.1，所以并不会造成冲突。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/usr/sbin/dnsmasq --no-resolv --keep-in-foreground --no-hosts --bind-interfaces --pid-file=/run/sendsigs.omit.d/network-manager.dnsmasq.pid --listen-address=127.0.1.1 --conf-file=/var/run/NetworkManager/dnsmasq.conf</span><br></pre></td></tr></table></figure></p>
+<h3 id="路由器智能DNS"><a href="#路由器智能DNS" class="headerlink" title="路由器智能DNS"></a>路由器智能DNS</h3><p>基于OpenWRT/Tomoto的路由器可以在上面配置dns server，从而实现在路由器级别智能dns解析。现在国内的一些路由器是基于OpenWRT的，因此支持配置dns服务器。<br>参考项目：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://github.com/clowwindy/ChinaDNS</span><br></pre></td></tr></table></figure></p>
+<h2 id="http-proxy"><a href="#http-proxy" class="headerlink" title="http proxy"></a>http proxy</h2><h3 id="http-proxy请求和没有proxy的请求的区别"><a href="#http-proxy请求和没有proxy的请求的区别" class="headerlink" title="http proxy请求和没有proxy的请求的区别"></a>http proxy请求和没有proxy的请求的区别</h3><p>在chrome里没有设置http proxy的请求头信息是这样的：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">GET /nocache/fesplg/s.gif</span><br><span class="line">Host: www.baidu.com</span><br></pre></td></tr></table></figure></p>
+<p>在设置了http proxy之后，发送的请求头是这样的：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">GET http://www.baidu.com//nocache/fesplg/s.gif</span><br><span class="line">Host: www.baidu.com</span><br><span class="line">Proxy-Connection: keep-alive</span><br></pre></td></tr></table></figure></p>
+<p>区别是配置http proxy之后，会在请求里发送完整的url。</p>
+<p>client在发送请求时，如果没有proxy，则直接发送path，如果有proxy，则要发送完整的url。</p>
+<p>实际上http proxy server可以处理两种情况，即使客户端没有发送完整的url，因为host字段里，已经有host信息了。</p>
+<p>为什么请求里要有完整的url？</p>
+<p>历史原因。</p>
+<h3 id="目标服务器能否感知到http-proxy的存在？"><a href="#目标服务器能否感知到http-proxy的存在？" class="headerlink" title="目标服务器能否感知到http proxy的存在？"></a>目标服务器能否感知到http proxy的存在？</h3><p>当我们使用http proxy时，有个问题可能会关心的：目标服务器能否感知到http proxy的存在？</p>
+<p>一个配置了proxy的浏览器请求头：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">GET http://55.75.138.79:9999/ HTTP/1.1</span><br><span class="line">Host: 55.75.138.79:9999</span><br><span class="line">Proxy-Connection: keep-alive</span><br></pre></td></tr></table></figure></p>
+<p>实际上目标服务器接收到的信息是这样子的：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">GET / HTTP/1.1</span><br><span class="line">Host: 55.75.138.79:9999</span><br><span class="line">Connection: keep-alive</span><br></pre></td></tr></table></figure></p>
+<p>可见，http proxy服务器并没有把proxy相关信息发送到目标服务器上。</p>
+<p>因此，目标服务器是没有办法知道用户是否使用了http proxy。</p>
+<h3 id="http-proxy-keep-alive"><a href="#http-proxy-keep-alive" class="headerlink" title="http proxy keep-alive"></a>http proxy keep-alive</h3><p>实际上Proxy-Connection: keep-alive这个请求头是错误的，不在标准里：</p>
+<p>因为http1.1 默认就是Connection: keep-alive</p>
+<p>如果client想要http proxy在请求之后关闭connection，可以用Proxy-Connection: close 来指明。</p>
+<p><a href="http://homepage.ntlworld.com/jonathan.deboynepollard/FGA/web-proxy-connection-header.html" target="_blank" rel="noopener">http://homepage.ntlworld.com/jonathan.deboynepollard/FGA/web-proxy-connection-header.html</a></p>
+<h3 id="http-proxy-authentication"><a href="#http-proxy-authentication" class="headerlink" title="http proxy authentication"></a>http proxy authentication</h3><p>当http proxy需要密码时：</p>
+<p>第一次请求没有密码，则会回应<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">HTTP/1.1 407 Proxy authentication required</span><br><span class="line">Proxy-Authenticate: Basic realm=&quot;Polipo&quot;</span><br></pre></td></tr></table></figure></p>
+<p>浏览器会弹出窗口，要求输入密码。<br>如果密码错误的话，回应头是：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HTTP/1.1 407 Proxy authentication incorrect</span><br></pre></td></tr></table></figure></p>
+<p>如果是配置了密码，发送的请求头则是：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">GET http://www.baidu.com/ HTTP/1.1</span><br><span class="line">Host: www.baidu.com</span><br><span class="line">Proxy-Connection: keep-alive</span><br><span class="line">Proxy-Authorization: Basic YWRtaW46YWRtaW4=</span><br></pre></td></tr></table></figure></p>
+<p>Proxy-Authorization实际是Base64编码。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">base64(&quot;admin:admin&quot;) == &quot;YWRtaW46YWRtaW4=&quot;</span><br></pre></td></tr></table></figure></p>
+<h3 id="http-proxy对于不认识的header和方法的处理："><a href="#http-proxy对于不认识的header和方法的处理：" class="headerlink" title="http proxy对于不认识的header和方法的处理："></a>http proxy对于不认识的header和方法的处理：</h3><p>http proxy通常会尽量原样发送，因为很多程序都扩展了http method，如果不支持，很多程序都不能正常工作。</p>
+<p>客户端用OPTIONS 请求可以探测服务器支持的方法。但是意义不大。</p>
+<h2 id="https-proxy"><a href="#https-proxy" class="headerlink" title="https proxy"></a>https proxy</h2><p>当访问一个https网站时，<a href="https://github.com" target="_blank" rel="noopener">https://github.com</a></p>
+<p>先发送connect method，如果支持，会返回200</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CONNECT github.com:443 HTTP/1.1</span><br><span class="line">Host: github.com</span><br><span class="line">Proxy-Connection: keep-alive</span><br><span class="line">User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36</span><br><span class="line"></span><br><span class="line">HTTP/1.1 200 OK</span><br></pre></td></tr></table></figure>
+<h3 id="http-tunnel"><a href="#http-tunnel" class="headerlink" title="http tunnel"></a>http tunnel</h3><p><a href="http://en.wikipedia.org/wiki/HTTP_tunnel#HTTP_CONNECT_tunneling" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/HTTP_tunnel#HTTP_CONNECT_tunneling</a></p>
+<p>通过connect method，http proxy server实际上充当tcp转发的中间人。<br>比如，用nc 通过http proxy来连42端口：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ nc -x10.2.3.4:8080 -Xconnect host.example.com 42</span><br></pre></td></tr></table></figure></p>
+<p>原理是利用CONNECT方法，让http proxy服务器充当中间人。</p>
+<h3 id="https-proxy的安全性？"><a href="#https-proxy的安全性？" class="headerlink" title="https proxy的安全性？"></a>https proxy的安全性？</h3><p>proxy server可以拿到什么信息？</p>
+<p>通过一个http proxy去访问支付宝是否安全？</p>
+<ul>
+<li>可以知道host，即要访问的是哪个网站</li>
+<li>拿不到url信息</li>
+<li>https协议保证不会泄露通信内容</li>
+<li>TLS(Transport Layer Security)  在握手时，生成强度足够的随机数</li>
+<li>TLS 每一个record都要有一个sequence number，每发一个增加一个，并且是不能翻转的。</li>
+<li>TLS 保证不会出现重放攻击</li>
+</ul>
+<p>TLS的内容很多，这里说到关于安全的一些关键点。</p>
+<p>注意事项：</p>
+<ul>
+<li>确保是https访问</li>
+<li>确保访问网站的证书没有问题</li>
+</ul>
+<p>是否真的安全了？更强的攻击者！</p>
+<p>流量劫持 —— 浮层登录框的隐患</p>
+<p><a href="http://fex.baidu.com/blog/2014/06/danger-behind-popup-login-dialog/" target="_blank" rel="noopener">http://fex.baidu.com/blog/2014/06/danger-behind-popup-login-dialog/</a></p>
+<p><strong>所以，尽量不要使用来路不明的http/https proxy，使用公开的wifi也要小心。</strong></p>
+<h2 id="goagent工作原理"><a href="#goagent工作原理" class="headerlink" title="goagent工作原理"></a>goagent工作原理</h2><ul>
+<li>local http/https proxy</li>
+<li>伪造https证书，导入浏览器信任列表里</li>
+<li>浏览器配置http/https proxy</li>
+<li>解析出http/https request的内容。然后把这些请求内容打包，发给GAE服务器</li>
+<li>与GAE通信通过http/https，内容用RC4算法加密</li>
+<li>GAE服务器，再调用google提供的 urlfetch，来获得请求的回应，然后再把回应打包，返回给客户端。</li>
+<li>客户端把回应传给浏览器</li>
+<li>自带dns解析服务器</li>
+<li>在local/certs/ 目录下可以找到缓存的伪造的证书</li>
+</ul>
+<p>fiddler抓取https数据包是同样原理。</p>
+<p>goagent会为每一个https网站伪造一个证书，并缓存起来。比如下面这个github的证书：<br><img src="/img/goagent-github-cert.png" alt="goagent-github-cert.png"></p>
+<p>goagent的代码在3.0之后，支持了很多其它功能，变得有点混乱了。</p>
+<p>以3.2.0 版本为例：</p>
+<p>主要的代码是在server/gae/gae.py 里。<br><a href="https://github.com/goagent/goagent/blob/v3.2.0/server/gae/gae.py#L107" target="_blank" rel="noopener">https://github.com/goagent/goagent/blob/v3.2.0/server/gae/gae.py#L107</a></p>
+<p>一些代码实现的细节：</p>
+<ul>
+<li>支持最长的url是2083，因为gae sdk的限制。<br><a href="https://github.com/AppScale/gae_sdk/blob/master/google/appengine/api/taskqueue/taskqueue.py#L241" target="_blank" rel="noopener">https://github.com/AppScale/gae_sdk/blob/master/google/appengine/api/taskqueue/taskqueue.py#L241</a></li>
+<li>如果回应的内容是/text, json, javascript，且 &gt; 512会用gzip来压缩</li>
+<li>处理一些Content-Range 的回应内容。Content-Range 的代码虽然只有一点点，但是如果是不熟悉的话，要花上不少工夫。</li>
+<li>goagent的生成证书的代码在 local/proxylib.py的这个函数里：</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@staticmethod</span></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">_get_cert</span><span class="params">(commonname, sans=<span class="params">()</span>)</span>:</span></span><br></pre></td></tr></table></figure>
+<h3 id="为什么goagent可以看视频？"><a href="#为什么goagent可以看视频？" class="headerlink" title="为什么goagent可以看视频？"></a>为什么goagent可以看视频？</h3><p>因为很多网站都是http协议的。有少部分是rmtp协议的，也有是rmtp over http的。</p>
+<p>在youku看视频的一个请求数据：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">http://14.152.72.22/youku/65748B784A636820C5A81B41C7/030002090454919F64A167032DBBC7EE242548-46C9-EB9D-916D-D8BA8D5159D3.flv?&amp;start=158</span><br><span class="line">response：</span><br><span class="line">Connection:close</span><br><span class="line">Content-Length:7883513</span><br><span class="line">Content-Type:video/x-flv</span><br><span class="line">Date:Wed, 17 Dec 2014 17:55:24 GMT</span><br><span class="line">ETag:&quot;316284225&quot;</span><br><span class="line">Last-Modified:Wed, 17 Dec 2014 15:21:26 GMT</span><br><span class="line">Server:YOUKU.GZ</span><br></pre></td></tr></table></figure></p>
+<p>可以看到，有ETag，有长度信息等。</p>
+<h3 id="goagent缺点"><a href="#goagent缺点" class="headerlink" title="goagent缺点"></a>goagent缺点</h3><ul>
+<li>只是http proxy，不能代理其它协议</li>
+<li>google的IP经常失效</li>
+<li>不支持websocket协议</li>
+<li>配置复杂</li>
+</ul>
+<h2 id="vpn"><a href="#vpn" class="headerlink" title="vpn"></a>vpn</h2><h3 id="流行的vpn类型"><a href="#流行的vpn类型" class="headerlink" title="流行的vpn类型"></a>流行的vpn类型</h3><ul>
+<li>PPTP，linux pptpd，安全性低，不能保证数据完整性或者来源，MPPE加密暴力破解</li>
+<li>L2TP，linux xl2tpd，预共享密钥可以保证安全性</li>
+<li>SSTP，基于HTTPS，微软提出。linux开源实现SoftEther VPN</li>
+<li>OPENVPN，基于SSL，预共享密钥可以保证安全性</li>
+<li>所谓的SSL VPN，各家厂商有自己的实现，没有统一的标准</li>
+<li>新型的staless VPN，像sigmavpn/ShadowVPN等</li>
+</ul>
+<p>现状：</p>
+<ul>
+<li>PPTP/L2TP 可用，但可能会不管用</li>
+<li>SoftEther VPN/OPENVPN 可能会导致服务器被封IP，连不上，慎用</li>
+<li>ShadowVPN可用，sigmavpn没有测试</li>
+</ul>
+<p>猜测下为什么PPTP，L2TP这些方案容易被检测到？</p>
+<p>可能是因为它们的协议都有明显的标头：</p>
+<ul>
+<li>转发的是ppp协议数据，握手有特征</li>
+<li>PPTP协议有GRE标头和PPP标头</li>
+<li>L2TP有L2TP标头和PPP标头</li>
+<li>L2TP要用到IPsec</li>
+</ul>
+<p>参考：</p>
+<p><a href="https://technet.microsoft.com/zh-cn/library/cc771298(v=ws.10).aspx" target="_blank" rel="noopener">https://technet.microsoft.com/zh-cn/library/cc771298(v=ws.10).aspx</a></p>
+<h3 id="网页版的SSL-VPN"><a href="#网页版的SSL-VPN" class="headerlink" title="网页版的SSL VPN"></a>网页版的SSL VPN</h3><p>有些企业，或者学校里，会有这种VPN：</p>
+<ul>
+<li>网页登陆帐号</li>
+<li>设置IE代理，为远程服务器地址</li>
+<li>通过代理浏览内部网页</li>
+</ul>
+<p>这种SSL VPN原理很简单，就是一个登陆验证的http proxy，其实并不能算是VPN？</p>
+<h3 id="新型的staless-vpnVPN，sigmavpn-ShadowVPN"><a href="#新型的staless-vpnVPN，sigmavpn-ShadowVPN" class="headerlink" title="新型的staless vpnVPN，sigmavpn/ShadowVPN"></a>新型的staless vpnVPN，sigmavpn/ShadowVPN</h3><p>这种新型VPN的原理是，利用虚拟的网络设备TUN和TAP，把请求数据先发给虚拟设备，然后把数据加密转发到远程服务器。（VPN都这原理？）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">you &lt;-&gt; local &lt;-&gt; protocol &lt;-&gt; remote &lt;-&gt; ...... &lt;-&gt; remote &lt;-&gt; protocol &lt;-&gt; local &lt;-&gt; peer</span><br></pre></td></tr></table></figure>
+<p>这种新型VPN的特点是很轻量，没有传统VPN那么复杂的握手加密控制等，而向个人，而非企业。SigmaVPN号称只有几百行代码。</p>
+<p>参考：</p>
+<p><a href="http://zh.wikipedia.org/wiki/TUN%E4%B8%8ETAP" target="_blank" rel="noopener">http://zh.wikipedia.org/wiki/TUN%E4%B8%8ETAP</a></p>
+<p><a href="https://code.google.com/p/sigmavpn/wiki/Introduction" target="_blank" rel="noopener">https://code.google.com/p/sigmavpn/wiki/Introduction</a></p>
+<h3 id="ubuntu-pptp-vpn-server安装"><a href="#ubuntu-pptp-vpn-server安装" class="headerlink" title="ubuntu pptp vpn server安装"></a>ubuntu pptp vpn server安装</h3><p>ubuntu官方参考文档：<br><a href="https://help.ubuntu.com/community/PPTPServer" target="_blank" rel="noopener">https://help.ubuntu.com/community/PPTPServer</a></p>
+<ul>
+<li><p>vps 要开启ppp和nat网络转发的功能</p>
+</li>
+<li><p><strong>设置MTU，建议设置为1200以下</strong>，因为中间网络可能很复杂，MTU太大可能导致连接失败</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -A FORWARD -p tcp --syn -s 192.168.0.0/24 -j TCPMSS --set-mss 1200</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+<h2 id="socks-proxy"><a href="#socks-proxy" class="headerlink" title="socks proxy"></a>socks proxy</h2><ul>
+<li>rfc 文档： <a href="http://tools.ietf.org/html/rfc1928" target="_blank" rel="noopener">http://tools.ietf.org/html/rfc1928</a></li>
+<li><p>wiki上的简介： <a href="http://en.wikipedia.org/wiki/SOCKS#SOCKS5" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/SOCKS#SOCKS5</a></p>
+</li>
+<li><p>socks4/socks4a 已经过时</p>
+</li>
+<li>socks5</li>
+</ul>
+<p>socks5支持udp，所以如果客户端把dns查询也走socks的话，那么就可以直接解决dns的问题了。</p>
+<h3 id="socks-proxy-握手的过程"><a href="#socks-proxy-握手的过程" class="headerlink" title="socks proxy 握手的过程"></a>socks proxy 握手的过程</h3><p>socks5流程</p>
+<ul>
+<li>客户端查询服务器支持的认证方式</li>
+<li>服务器回应支持的认证方式</li>
+<li>客户端发送认证信息，服务器回应</li>
+<li><p>如果通过，客户端直接发送TCP/UDP的原始数据，以后proxy只单纯转发数据流，不做任何处理了</p>
+</li>
+<li><p><strong>socks proxy 自身没有加密机制，简单的TCP/UDP forward</strong></p>
+</li>
+</ul>
+<p>socks协议其实是相当简单的，用wireshark抓包，结合netty-codec-socks，很容易可以理解其工作过程。<br><a href="https://github.com/netty/netty/tree/master/codec-socks" target="_blank" rel="noopener">https://github.com/netty/netty/tree/master/codec-socks</a></p>
+<h3 id="ssh-socks-proxy"><a href="#ssh-socks-proxy" class="headerlink" title="ssh socks proxy"></a>ssh socks proxy</h3><p>如果有一个外国的服务器，可以通过ssh连接登陆，那么可以很简单地搭建一个本地的socks5代理。</p>
+<p>XShell可以通过“转移规则”来配置本地socks服务器，putty也有类似的配置：<br><img src="/img/xshell-sock5-proxy.png" alt="xshell-sock5-proxy.png"></p>
+<p>linux下命令行启动一个本地sock5服务器：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -D 1080 user@romoteHost</span><br></pre></td></tr></table></figure></p>
+<p>ssh还有一些端口转发的技巧，这对于测试网络程序，绕过防火墙也是很有帮助的。</p>
+<p>参考：<a href="http://www.ibm.com/developerworks/cn/linux/l-cn-sshforward/" target="_blank" rel="noopener">http://www.ibm.com/developerworks/cn/linux/l-cn-sshforward/</a></p>
+<h3 id="shadowsocks的工作原理"><a href="#shadowsocks的工作原理" class="headerlink" title="shadowsocks的工作原理"></a>shadowsocks的工作原理</h3><p>shadowsocks是非常流行的一个代理工具，其原理非常简单。</p>
+<ul>
+<li>客户端服务器预共享密码</li>
+<li>本地socks5 proxy server（有没有想起在学校时用的ccproxy？）</li>
+<li>软件/浏览器配置本地socks代理</li>
+<li>本地socks server把数据包装，AES256加密，发送到远程服务器</li>
+<li>远程服务器解密，转发给对应的服务器</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">app =&gt; local socks server(encrypt) =&gt; shadowsocks server(decrypt) =&gt; real host</span><br><span class="line"></span><br><span class="line">app &lt;= (decrypt) local socks server &lt;= (encrypt) shadowsocks server &lt;= real host</span><br></pre></td></tr></table></figure>
+<p>其它的一些东东：</p>
+<ul>
+<li>一个端口一个密码，没有用户的概念</li>
+<li>支持多个worker并发</li>
+<li>协议简单，比socks协议还要简单，抽取了socks协议的部分</li>
+</ul>
+<h3 id="shadowsoks的优点"><a href="#shadowsoks的优点" class="headerlink" title="shadowsoks的优点"></a>shadowsoks的优点</h3><ul>
+<li>中间没有任何握手的环节，直接是TCP数据流</li>
+<li>速度快</li>
+</ul>
+<h3 id="shadowsocks的安全性"><a href="#shadowsocks的安全性" class="headerlink" title="shadowsocks的安全性"></a>shadowsocks的安全性</h3><ul>
+<li>服务器可以解出所有的TCP/UDP数据</li>
+<li>中间人攻击，重放攻击</li>
+</ul>
+<p>所以，<strong>对于第三方shadow socks服务器，要慎重使用。</strong></p>
+<p>在使用shadowsocks的情况下，https通迅是安全的，但是仍然有危险，参见上面http proxy安全的内容。</p>
+<h3 id="vpn和socks代理的区别"><a href="#vpn和socks代理的区别" class="headerlink" title="vpn和socks代理的区别"></a>vpn和socks代理的区别</h3><p>从原理上来说，socks代理会更快，因为转发的数据更少。</p>
+<p>因为vpn转发的是ppp数据包，ppp协议是数据链路层(data link layer)的协议。socks转发的是TCP/UDP数据，是传输(transport)层。</p>
+<p>VPN的优点是很容易配置成全局的，这对于很多不能配置代理的程序来说很方便。而配置全局的socks proxy比较麻烦，目前貌似还没有简单的方案。</p>
+<h3 id="linux下一些软件配置代理的方法"><a href="#linux下一些软件配置代理的方法" class="headerlink" title="linux下一些软件配置代理的方法"></a>linux下一些软件配置代理的方法</h3><ul>
+<li>bash/shell</li>
+</ul>
+<p>对于shell，最简单的办法是在命令的前面设置下http_porxy的环境变量。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http_proxy=http://127.0.0.1:8123 wget http://test.com</span><br></pre></td></tr></table></figure></p>
+<p>推荐的做法是在~/.bashrc 文件里设置两个命令，开关http proxy：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">alias</span> proxyOn=<span class="string">'export https_proxy=http://127.0.0.1:8123 &amp;&amp; http_proxy=http://127.0.0.1:8123'</span></span><br><span class="line"><span class="built_in">alias</span> proxyOff=<span class="string">'unset https_proxy &amp;&amp; unset  http_proxy'</span></span><br></pre></td></tr></table></figure></p>
+<p>注意，如果想sudo的情况下，http proxy仍然有效，要配置env_keep。</p>
+<p>在/etc/sudoers.d/目录下增加一个env_keep的文件，内容是：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Defaults env_keep += &quot; http_proxy https_proxy ftp_proxy &quot;</span><br></pre></td></tr></table></figure></p>
+<p>参考：<br><a href="https://help.ubuntu.com/community/AptGet/Howto#Setting_up_apt-get_to_use_a_http-proxy" target="_blank" rel="noopener">https://help.ubuntu.com/community/AptGet/Howto#Setting_up_apt-get_to_use_a_http-proxy</a></p>
+<ul>
+<li>GUI软件</li>
+</ul>
+<p>现在大部分软件都可以设置代理。<br>gnome和kde都可以设置全局的代理。</p>
+<h3 id="linux下不支持代理的程序使用socks代理：tsocks"><a href="#linux下不支持代理的程序使用socks代理：tsocks" class="headerlink" title="linux下不支持代理的程序使用socks代理：tsocks"></a>linux下不支持代理的程序使用socks代理：tsocks</h3><p>tsocks利用LD_PRELOAD机制，代理程序里的connect函数，然后就可以代理所有的TCP请求了。<br>不过dns请求，默认是通过udp来发送的，所以tsocks不能代理dns请求。</p>
+<p>默认情况下，tsocks会先加载~/.tsocks.conf，如果没有，再加载/etc/tsocks.conf。对于local ip不会代理。</p>
+<p>使用方法：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get install tsocks</span><br><span class="line">LD_PRELOAD=/usr/lib/libtsocks.so wget http://www.facebook.com</span><br></pre></td></tr></table></figure>
+<h2 id="基于路由器的方案"><a href="#基于路由器的方案" class="headerlink" title="基于路由器的方案"></a>基于路由器的方案</h2><p>基于路由器的方案有很多，原理和本机的方案是一样的，只不过把这些措施前移到路由器里。</p>
+<p>路由器的方案的优点是很明显的：</p>
+<ul>
+<li>手机/平板不用设置</li>
+<li>公司/局域网级的代理</li>
+</ul>
+<p>但是需要专门的路由器，刷固件等。</p>
+<p>shadowsocks, shadowvpn都可以跑在路由器上。</p>
+<p>一些项目收集：</p>
+<p><a href="https://github.com/lifetyper/FreeRouter_V2" target="_blank" rel="noopener">https://github.com/lifetyper/FreeRouter_V2</a></p>
+<p><a href="https://gist.github.com/wen-long/8644243" target="_blank" rel="noopener">https://gist.github.com/wen-long/8644243</a></p>
+<p><a href="https://github.com/ashi009/bestroutetb" target="_blank" rel="noopener">https://github.com/ashi009/bestroutetb</a></p>
+<h2 id="推荐的办法"><a href="#推荐的办法" class="headerlink" title="推荐的办法"></a>推荐的办法</h2><p>完全免费</p>
+<ul>
+<li>chrome + switchsharp/SwitchyOmega + http proxy</li>
+<li>goagent</li>
+</ul>
+<p>程序员的推荐</p>
+<ul>
+<li>chrome + switchsharp/SwitchyOmega + socks5 proxy</li>
+<li>aws免费一年的服务器/其它国外免费云主机，节点位置决定速度，推荐东京机房</li>
+<li>shadowsocks</li>
+</ul>
+<p>第三方免费的服务器</p>
+<ul>
+<li>shadowsocks服务器，微信公众号：pennyjob</li>
+</ul>
+<p>手机软件：</p>
+<ul>
+<li>fqrouter</li>
+<li>shadowsocks client</li>
+</ul>
+<p>商业软件安全性自己考虑</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>新技术层出不穷</li>
+<li>越流行，越容易失效</li>
+<li>实现一个proxy其实相当简单</li>
+<li>知其所以然，更好使用工具，也可以创作出自己的工具。</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/proxy/" rel="tag"># proxy</a>
+          
+            <a href="/tags/代理/" rel="tag"># 代理</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/hexo-support-remarkjs/" rel="next" title="在hexo里配置remarkjs">
+                <i class="fa fa-chevron-left"></i> 在hexo里配置remarkjs
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/about-metrics/" rel="prev" title="基于dropwizard/metrics ，kafka，zabbix构建应用统计数据收集展示系统">
+                基于dropwizard/metrics ，kafka，zabbix构建应用统计数据收集展示系统 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#知其所以然"><span class="nav-number">1.</span> <span class="nav-text">知其所以然</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#一个http请求发生了什么？"><span class="nav-number">2.</span> <span class="nav-text">一个http请求发生了什么？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DNS-域名解析"><span class="nav-number">3.</span> <span class="nav-text">DNS/域名解析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#udp-方式，先回应的数据包被当做有效数据"><span class="nav-number">3.1.</span> <span class="nav-text">udp 方式，先回应的数据包被当做有效数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#tcp-方式，有时有效，可能被rest"><span class="nav-number">3.2.</span> <span class="nav-text">tcp 方式，有时有效，可能被rest</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#黑名单-白名单"><span class="nav-number">3.3.</span> <span class="nav-text">黑名单/白名单</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#本地DNS软件"><span class="nav-number">3.4.</span> <span class="nav-text">本地DNS软件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#路由器智能DNS"><span class="nav-number">3.5.</span> <span class="nav-text">路由器智能DNS</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#http-proxy"><span class="nav-number">4.</span> <span class="nav-text">http proxy</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#http-proxy请求和没有proxy的请求的区别"><span class="nav-number">4.1.</span> <span class="nav-text">http proxy请求和没有proxy的请求的区别</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#目标服务器能否感知到http-proxy的存在？"><span class="nav-number">4.2.</span> <span class="nav-text">目标服务器能否感知到http proxy的存在？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#http-proxy-keep-alive"><span class="nav-number">4.3.</span> <span class="nav-text">http proxy keep-alive</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#http-proxy-authentication"><span class="nav-number">4.4.</span> <span class="nav-text">http proxy authentication</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#http-proxy对于不认识的header和方法的处理："><span class="nav-number">4.5.</span> <span class="nav-text">http proxy对于不认识的header和方法的处理：</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#https-proxy"><span class="nav-number">5.</span> <span class="nav-text">https proxy</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#http-tunnel"><span class="nav-number">5.1.</span> <span class="nav-text">http tunnel</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#https-proxy的安全性？"><span class="nav-number">5.2.</span> <span class="nav-text">https proxy的安全性？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#goagent工作原理"><span class="nav-number">6.</span> <span class="nav-text">goagent工作原理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#为什么goagent可以看视频？"><span class="nav-number">6.1.</span> <span class="nav-text">为什么goagent可以看视频？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#goagent缺点"><span class="nav-number">6.2.</span> <span class="nav-text">goagent缺点</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#vpn"><span class="nav-number">7.</span> <span class="nav-text">vpn</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#流行的vpn类型"><span class="nav-number">7.1.</span> <span class="nav-text">流行的vpn类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#网页版的SSL-VPN"><span class="nav-number">7.2.</span> <span class="nav-text">网页版的SSL VPN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#新型的staless-vpnVPN，sigmavpn-ShadowVPN"><span class="nav-number">7.3.</span> <span class="nav-text">新型的staless vpnVPN，sigmavpn/ShadowVPN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ubuntu-pptp-vpn-server安装"><span class="nav-number">7.4.</span> <span class="nav-text">ubuntu pptp vpn server安装</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#socks-proxy"><span class="nav-number">8.</span> <span class="nav-text">socks proxy</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#socks-proxy-握手的过程"><span class="nav-number">8.1.</span> <span class="nav-text">socks proxy 握手的过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ssh-socks-proxy"><span class="nav-number">8.2.</span> <span class="nav-text">ssh socks proxy</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#shadowsocks的工作原理"><span class="nav-number">8.3.</span> <span class="nav-text">shadowsocks的工作原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#shadowsoks的优点"><span class="nav-number">8.4.</span> <span class="nav-text">shadowsoks的优点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#shadowsocks的安全性"><span class="nav-number">8.5.</span> <span class="nav-text">shadowsocks的安全性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#vpn和socks代理的区别"><span class="nav-number">8.6.</span> <span class="nav-text">vpn和socks代理的区别</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#linux下一些软件配置代理的方法"><span class="nav-number">8.7.</span> <span class="nav-text">linux下一些软件配置代理的方法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#linux下不支持代理的程序使用socks代理：tsocks"><span class="nav-number">8.8.</span> <span class="nav-text">linux下不支持代理的程序使用socks代理：tsocks</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#基于路由器的方案"><span class="nav-number">9.</span> <span class="nav-text">基于路由器的方案</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#推荐的办法"><span class="nav-number">10.</span> <span class="nav-text">推荐的办法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">11.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

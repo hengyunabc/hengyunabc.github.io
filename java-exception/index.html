@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言最近发现一个很有用的Eclipse插件：http://andrei.gmxhome.de/bytecode/，可以在Eclipse直接查看，调试Java的字节码。 顺带研究了下Java里异常的实现机制，还有JDK7里的mutil catch的实现原理。 athrow指令在JVM里实现异常的指令是athrow，指令的参考在这里：http://docs.oracle.com/javase/spec">
+<meta name="keywords" content="java,bytecode,exception,asm">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java中异常Exception的实现的一些分析">
+<meta property="og:url" content="http://hengyunabc.github.io/java-exception/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言最近发现一个很有用的Eclipse插件：http://andrei.gmxhome.de/bytecode/，可以在Eclipse直接查看，调试Java的字节码。 顺带研究了下Java里异常的实现机制，还有JDK7里的mutil catch的实现原理。 athrow指令在JVM里实现异常的指令是athrow，指令的参考在这里：http://docs.oracle.com/javase/spec">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Java中异常Exception的实现的一些分析">
+<meta name="twitter:description" content="前言最近发现一个很有用的Eclipse插件：http://andrei.gmxhome.de/bytecode/，可以在Eclipse直接查看，调试Java的字节码。 顺带研究了下Java里异常的实现机制，还有JDK7里的mutil catch的实现原理。 athrow指令在JVM里实现异常的指令是athrow，指令的参考在这里：http://docs.oracle.com/javase/spec">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/java-exception/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Java中异常Exception的实现的一些分析 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/java-exception/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Java中异常Exception的实现的一些分析
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2013-11-03 16:58:28" itemprop="dateCreated datePublished" datetime="2013-11-03T16:58:28+00:00">2013-11-03</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>最近发现一个很有用的Eclipse插件：<a href="http://andrei.gmxhome.de/bytecode/，可以在Eclipse直接查看，调试Java的字节码。" target="_blank" rel="noopener">http://andrei.gmxhome.de/bytecode/，可以在Eclipse直接查看，调试Java的字节码。</a></p>
+<p>顺带研究了下Java里异常的实现机制，还有JDK7里的mutil catch的实现原理。</p>
+<h2 id="athrow指令"><a href="#athrow指令" class="headerlink" title="athrow指令"></a>athrow指令</h2><p>在JVM里实现异常的指令是athrow，指令的参考在这里：<a href="http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.athrow" target="_blank" rel="noopener">http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.athrow</a></p>
+<p>大段的英文就不粘贴过来了：）。</p>
+<p>个人理解：JVM是基于所谓的栈帧的(stack frame)的，一个函数调用链就是一个个栈帧组成，当在一个栈里用athrow抛出异常时，JVM会搜索当前函数的异常处理表（参考下面的Class文件分析），如果有找到对应的异常处理的handler，则由这个handler来处理。如果没有，则清理当前栈，再回到上一层栈帧中处理。如果一层层栈帧回退，最终都没有找到Exception Handler，则线程终止。</p>
+<p>下面贴点实际代码：</p>
+<p>一个简单的函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">testFunc</span><span class="params">(<span class="keyword">int</span> i)</span> <span class="keyword">throws</span> NamingException, XPathException, SQLException </span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (i == <span class="number">3</span>) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> XPathException(<span class="string">""</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (i == <span class="number">4</span>) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> SQLException();</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (i == <span class="number">5</span>) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> NamingException();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>前面提到的ByteCode插件给出的分析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// access flags 0x1</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="title">testFunc</span><span class="params">(I)</span>V <span class="keyword">throws</span> javax/naming/NamingException javax/xml/xpath/XPathException java/sql/SQLException </span></span><br><span class="line"><span class="function">   L0</span></span><br><span class="line"><span class="function">    LINENUMBER 31 L0</span></span><br><span class="line"><span class="function">    ILOAD 1</span></span><br><span class="line"><span class="function">    ICONST_3</span></span><br><span class="line"><span class="function">    IF_ICMPNE L1</span></span><br><span class="line"><span class="function">   L2</span></span><br><span class="line"><span class="function">    LINENUMBER 32 L2</span></span><br><span class="line"><span class="function">    NEW javax/xml/xpath/XPathException</span></span><br><span class="line"><span class="function">    DUP</span></span><br><span class="line"><span class="function">    LDC ""</span></span><br><span class="line"><span class="function">    INVOKESPECIAL javax/xml/xpath/XPathException.&lt;init&gt;<span class="params">(Ljava/lang/String;)</span>V</span></span><br><span class="line"><span class="function">    ATHROW</span></span><br><span class="line"><span class="function">   L1</span></span><br><span class="line"><span class="function">    LINENUMBER 34 L1</span></span><br><span class="line"><span class="function">   FRAME SAME</span></span><br><span class="line"><span class="function">    ILOAD 1</span></span><br><span class="line"><span class="function">    ICONST_4</span></span><br><span class="line"><span class="function">    IF_ICMPNE L3</span></span><br><span class="line"><span class="function">   L4</span></span><br><span class="line"><span class="function">    LINENUMBER 35 L4</span></span><br><span class="line"><span class="function">    NEW java/sql/SQLException</span></span><br><span class="line"><span class="function">    DUP</span></span><br><span class="line"><span class="function">    INVOKESPECIAL java/sql/SQLException.&lt;init&gt;<span class="params">()</span>V</span></span><br><span class="line"><span class="function">    ATHROW</span></span><br><span class="line"><span class="function">   L3</span></span><br><span class="line"><span class="function">    LINENUMBER 37 L3</span></span><br><span class="line"><span class="function">   FRAME SAME</span></span><br><span class="line"><span class="function">    ILOAD 1</span></span><br><span class="line"><span class="function">    ICONST_5</span></span><br><span class="line"><span class="function">    IF_ICMPNE L5</span></span><br><span class="line"><span class="function">   L6</span></span><br><span class="line"><span class="function">    LINENUMBER 38 L6</span></span><br><span class="line"><span class="function">    NEW javax/naming/NamingException</span></span><br><span class="line"><span class="function">    DUP</span></span><br><span class="line"><span class="function">    INVOKESPECIAL javax/naming/NamingException.&lt;init&gt;<span class="params">()</span>V</span></span><br><span class="line"><span class="function">    ATHROW</span></span><br><span class="line"><span class="function">   L5</span></span><br><span class="line"><span class="function">    LINENUMBER 40 L5</span></span><br><span class="line"><span class="function">   FRAME SAME</span></span><br><span class="line"><span class="function">    RETURN</span></span><br><span class="line"><span class="function">   L7</span></span><br><span class="line"><span class="function">    LOCALVARIABLE <span class="keyword">this</span> LTest</span>; L0 L7 <span class="number">0</span></span><br><span class="line">    LOCALVARIABLE i I L0 L7 <span class="number">1</span></span><br><span class="line">    MAXSTACK = <span class="number">3</span></span><br><span class="line">    MAXLOCALS = <span class="number">2</span></span><br></pre></td></tr></table></figure>
+<p>如果对汇编有一定了解的话，可以很容易看到，在Java里，抛出一个异常真的是非常简单的：<br>先New一个异常对象，再把这个对象的引用放到栈顶，再用athrow指令抛出这个异常。</p>
+<h2 id="catch块的实现"><a href="#catch块的实现" class="headerlink" title="catch块的实现"></a>catch块的实现</h2><p>那下面来看下，从指令层面，是如何处理这个异常的：</p>
+<p>首先，处理这个异常的函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">try</span> &#123;</span><br><span class="line">		testFunc(<span class="number">100</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (NamingException e) &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated catch block</span></span><br><span class="line">		System.out.println(<span class="string">"11111"</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (XPathException e) &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated catch block</span></span><br><span class="line">		System.out.println(<span class="string">"22222"</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated catch block</span></span><br><span class="line">		System.out.println(<span class="string">"33333"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ByteCode插件给出的分析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// access flags 0x1</span></span><br><span class="line"> <span class="function"><span class="keyword">public</span> <span class="title">test</span><span class="params">()</span>V</span></span><br><span class="line"><span class="function">   TRYCATCHBLOCK L0 L1 L2 javax/naming/NamingException</span></span><br><span class="line"><span class="function">   TRYCATCHBLOCK L0 L1 L3 javax/xml/xpath/XPathException</span></span><br><span class="line"><span class="function">   TRYCATCHBLOCK L0 L1 L4 java/sql/SQLException</span></span><br><span class="line"><span class="function">  L0</span></span><br><span class="line"><span class="function">   LINENUMBER 44 L0</span></span><br><span class="line"><span class="function">   ALOAD 0</span></span><br><span class="line"><span class="function">   BIPUSH 100</span></span><br><span class="line"><span class="function">   INVOKEVIRTUAL Test.<span class="title">testFunc</span><span class="params">(I)</span>V</span></span><br><span class="line"><span class="function">  L1</span></span><br><span class="line"><span class="function">   LINENUMBER 45 L1</span></span><br><span class="line"><span class="function">   GOTO L5</span></span><br><span class="line"><span class="function">  L2</span></span><br><span class="line"><span class="function">  FRAME SAME1 javax/naming/NamingException</span></span><br><span class="line"><span class="function">   ASTORE 1</span></span><br><span class="line"><span class="function">  L6</span></span><br><span class="line"><span class="function">   LINENUMBER 47 L6</span></span><br><span class="line"><span class="function">   GETSTATIC java/lang/System.out : Ljava/io/PrintStream</span>;</span><br><span class="line">   LDC <span class="string">"11111"</span></span><br><span class="line">   INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">  L7</span><br><span class="line">   GOTO L5</span><br><span class="line">  L3</span><br><span class="line">   LINENUMBER <span class="number">48</span> L3</span><br><span class="line">  FRAME SAME1 javax/xml/xpath/XPathException</span><br><span class="line">   ASTORE <span class="number">1</span></span><br><span class="line">  L8</span><br><span class="line">   LINENUMBER <span class="number">50</span> L8</span><br><span class="line">   GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">   LDC <span class="string">"22222"</span></span><br><span class="line">   INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">  L9</span><br><span class="line">   GOTO L5</span><br><span class="line">  L4</span><br><span class="line">   LINENUMBER <span class="number">51</span> L4</span><br><span class="line">  FRAME SAME1 java/sql/SQLException</span><br><span class="line">   ASTORE <span class="number">1</span></span><br><span class="line">  L10</span><br><span class="line">   LINENUMBER <span class="number">53</span> L10</span><br><span class="line">   GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">   LDC <span class="string">"33333"</span></span><br><span class="line">   INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">  L5</span><br><span class="line">   LINENUMBER <span class="number">55</span> L5</span><br><span class="line">  FRAME SAME</span><br><span class="line">   RETURN</span><br><span class="line">  L11</span><br><span class="line">   LOCALVARIABLE <span class="keyword">this</span> LTest; L0 L11 <span class="number">0</span></span><br><span class="line">   LOCALVARIABLE e Ljavax/naming/NamingException; L6 L7 <span class="number">1</span></span><br><span class="line">   LOCALVARIABLE e Ljavax/xml/xpath/XPathException; L8 L9 <span class="number">1</span></span><br><span class="line">   LOCALVARIABLE e Ljava/sql/SQLException; L10 L5 <span class="number">1</span></span><br><span class="line">   MAXSTACK = <span class="number">2</span></span><br><span class="line">   MAXLOCALS = <span class="number">2</span></span><br></pre></td></tr></table></figure>
+<p>可以看到最开始部分有三条TRYCATCHBLOCK，再分析下这些TRYCATCHBLOCK后面跟着三个标签，最后还有一个异常的名字，再仔细分析下，可以发现三个标签分别对应try块开始的地方，try块结束的地方，catch块开始的地方。这个实际上就是所谓的Execption Table。</p>
+<h2 id="class文件格式分析"><a href="#class文件格式分析" class="headerlink" title="class文件格式分析"></a>class文件格式分析</h2><p>另外，在Class文件的格式里，我们也可以看到Method的Execption Table。可以看出一个条目有四个元素组成：</p>
+<p>start_pc, end_pc, handler_pc, catch_type。显然这些异常表里的数据是和代码位置有关的，和我们上面看到的一致。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">Code_attribute &#123;</span><br><span class="line">    u2 attribute_name_index;</span><br><span class="line">    u4 attribute_length;</span><br><span class="line">    u2 max_stack;</span><br><span class="line">    u2 max_locals;</span><br><span class="line">    u4 code_length;</span><br><span class="line">    u1 code[code_length];</span><br><span class="line">    u2 exception_table_length;</span><br><span class="line">    &#123;   u2 start_pc;</span><br><span class="line">        u2 end_pc;</span><br><span class="line">        u2 handler_pc;</span><br><span class="line">        u2 catch_type;</span><br><span class="line">    &#125; exception_table[exception_table_length];</span><br><span class="line">    u2 attributes_count;</span><br><span class="line">    attribute_info attributes[attributes_count];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>所以，我们可以看到，test()函数调用了testFunc()函数，那么，当testFunc()函数里抛出异常时，JVM先回退到test()函数的栈帧，再从Execption Table里查找是否有合适的Execption Hanler，查找首先当前的pc(program counter)要在start_pc, end_pc之间，而且异常的名字要匹配（当然这个应该会被优化成常量的比较，即一个long的比较，不会真的去比较字符串）。如果找到，则跳到对应的handler_pc处继续执行。</p>
+<h2 id="finally块的实现"><a href="#finally块的实现" class="headerlink" title="finally块的实现"></a>finally块的实现</h2><p>下面再来看下Finally块到底是怎么实现的：</p>
+<p>在代码里增加finally块：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test2</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">try</span> &#123;</span><br><span class="line">		testFunc(<span class="number">100</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (NamingException e) &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated catch block</span></span><br><span class="line">		System.out.println(<span class="string">"11111"</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (XPathException e) &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated catch block</span></span><br><span class="line">		System.out.println(<span class="string">"22222"</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (SQLException e) &#123;</span><br><span class="line">		<span class="comment">// TODO Auto-generated catch block</span></span><br><span class="line">		System.out.println(<span class="string">"33333"</span>);</span><br><span class="line">	&#125;<span class="keyword">finally</span> &#123;</span><br><span class="line">		System.out.println(<span class="string">"xxxxxxxxxxxx"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ByteCode插件的分析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// access flags 0x1</span></span><br><span class="line">  <span class="function"><span class="keyword">public</span> <span class="title">test2</span><span class="params">()</span>V</span></span><br><span class="line"><span class="function">    TRYCATCHBLOCK L0 L1 L2 javax/naming/NamingException</span></span><br><span class="line"><span class="function">    TRYCATCHBLOCK L0 L1 L3 javax/xml/xpath/XPathException</span></span><br><span class="line"><span class="function">    TRYCATCHBLOCK L0 L1 L4 java/sql/SQLException</span></span><br><span class="line"><span class="function">    TRYCATCHBLOCK L0 L5 L6 </span></span><br><span class="line"><span class="function">    TRYCATCHBLOCK L3 L7 L6 </span></span><br><span class="line"><span class="function">    TRYCATCHBLOCK L4 L8 L6 </span></span><br><span class="line"><span class="function">   L0</span></span><br><span class="line"><span class="function">    LINENUMBER 60 L0</span></span><br><span class="line"><span class="function">    ALOAD 0</span></span><br><span class="line"><span class="function">    BIPUSH 100</span></span><br><span class="line"><span class="function">    INVOKEVIRTUAL Test.<span class="title">testFunc</span><span class="params">(I)</span>V</span></span><br><span class="line"><span class="function">   L1</span></span><br><span class="line"><span class="function">    LINENUMBER 61 L1</span></span><br><span class="line"><span class="function">    GOTO L9</span></span><br><span class="line"><span class="function">   L2</span></span><br><span class="line"><span class="function">   FRAME SAME1 javax/naming/NamingException</span></span><br><span class="line"><span class="function">    ASTORE 1</span></span><br><span class="line"><span class="function">   L10</span></span><br><span class="line"><span class="function">    LINENUMBER 63 L10</span></span><br><span class="line"><span class="function">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream</span>;</span><br><span class="line">    LDC <span class="string">"11111"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">   L5</span><br><span class="line">    LINENUMBER <span class="number">71</span> L5</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"xxxxxxxxxxxx"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">    GOTO L11</span><br><span class="line">   L3</span><br><span class="line">    LINENUMBER <span class="number">64</span> L3</span><br><span class="line">   FRAME SAME1 javax/xml/xpath/XPathException</span><br><span class="line">    ASTORE <span class="number">1</span></span><br><span class="line">   L12</span><br><span class="line">    LINENUMBER <span class="number">66</span> L12</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"22222"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">   L7</span><br><span class="line">    LINENUMBER <span class="number">71</span> L7</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"xxxxxxxxxxxx"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">    GOTO L11</span><br><span class="line">   L4</span><br><span class="line">    LINENUMBER <span class="number">67</span> L4</span><br><span class="line">   FRAME SAME1 java/sql/SQLException</span><br><span class="line">    ASTORE <span class="number">1</span></span><br><span class="line">   L13</span><br><span class="line">    LINENUMBER <span class="number">69</span> L13</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"33333"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">   L8</span><br><span class="line">    LINENUMBER <span class="number">71</span> L8</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"xxxxxxxxxxxx"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">    GOTO L11</span><br><span class="line">   L6</span><br><span class="line">    LINENUMBER <span class="number">70</span> L6</span><br><span class="line">   FRAME SAME1 java/lang/Throwable</span><br><span class="line">    ASTORE <span class="number">2</span></span><br><span class="line">   L14</span><br><span class="line">    LINENUMBER <span class="number">71</span> L14</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"xxxxxxxxxxxx"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">   L15</span><br><span class="line">    LINENUMBER <span class="number">72</span> L15</span><br><span class="line">    ALOAD <span class="number">2</span></span><br><span class="line">    ATHROW</span><br><span class="line">   L9</span><br><span class="line">    LINENUMBER <span class="number">71</span> L9</span><br><span class="line">   FRAME SAME</span><br><span class="line">    GETSTATIC java/lang/System.out : Ljava/io/PrintStream;</span><br><span class="line">    LDC <span class="string">"xxxxxxxxxxxx"</span></span><br><span class="line">    INVOKEVIRTUAL java/io/PrintStream.println(Ljava/lang/String;)V</span><br><span class="line">   L11</span><br><span class="line">    LINENUMBER <span class="number">73</span> L11</span><br><span class="line">   FRAME SAME</span><br><span class="line">    RETURN</span><br><span class="line">   L16</span><br><span class="line">    LOCALVARIABLE <span class="keyword">this</span> LTest; L0 L16 <span class="number">0</span></span><br><span class="line">    LOCALVARIABLE e Ljavax/naming/NamingException; L10 L5 <span class="number">1</span></span><br><span class="line">    LOCALVARIABLE e Ljavax/xml/xpath/XPathException; L12 L7 <span class="number">1</span></span><br><span class="line">    LOCALVARIABLE e Ljava/sql/SQLException; L13 L8 <span class="number">1</span></span><br><span class="line">    MAXSTACK = <span class="number">2</span></span><br><span class="line">    MAXLOCALS = <span class="number">3</span></span><br></pre></td></tr></table></figure>
+<p>我们可以很神奇的发现，finally块的代码在每一个catch后面都有一份。也就是说finally的实现有点像内联优化，把代码复制了很多份。</p>
+<h2 id="JDK7中mutil-catch的实现"><a href="#JDK7中mutil-catch的实现" class="headerlink" title="JDK7中mutil catch的实现"></a>JDK7中mutil catch的实现</h2><p>我们再来看下JDK7新增的mutil catch语法的实现：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">test3</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">try</span> &#123;</span><br><span class="line">		testFunc(<span class="number">100</span>);</span><br><span class="line">	&#125; <span class="keyword">catch</span> (NamingException | XPathException | SQLException e) &#123;</span><br><span class="line">		e.printStackTrace();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>ByteCode插件的分析：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">test3</span><span class="params">()</span>V</span></span><br><span class="line"><span class="function">   TRYCATCHBLOCK L0 L1 L2 javax/naming/NamingException</span></span><br><span class="line"><span class="function">   TRYCATCHBLOCK L0 L1 L2 javax/xml/xpath/XPathException</span></span><br><span class="line"><span class="function">   TRYCATCHBLOCK L0 L1 L2 java/sql/SQLException</span></span><br><span class="line"><span class="function">  L0</span></span><br><span class="line"><span class="function">   LINENUMBER 77 L0</span></span><br><span class="line"><span class="function">   ALOAD 0</span></span><br><span class="line"><span class="function">   BIPUSH 100</span></span><br><span class="line"><span class="function">   INVOKEVIRTUAL Test.<span class="title">testFunc</span><span class="params">(I)</span>V</span></span><br><span class="line"><span class="function">  L1</span></span><br><span class="line"><span class="function">   LINENUMBER 78 L1</span></span><br><span class="line"><span class="function">   GOTO L3</span></span><br><span class="line"><span class="function">  L2</span></span><br><span class="line"><span class="function">  FRAME SAME1 java/lang/Exception</span></span><br><span class="line"><span class="function">   ASTORE 1</span></span><br><span class="line"><span class="function">  L4</span></span><br><span class="line"><span class="function">   LINENUMBER 79 L4</span></span><br><span class="line"><span class="function">   ALOAD 1</span></span><br><span class="line"><span class="function">   INVOKEVIRTUAL java/lang/Exception.<span class="title">printStackTrace</span><span class="params">()</span>V</span></span><br><span class="line"><span class="function">  L3</span></span><br><span class="line"><span class="function">   LINENUMBER 81 L3</span></span><br><span class="line"><span class="function">  FRAME SAME</span></span><br><span class="line"><span class="function">   RETURN</span></span><br><span class="line"><span class="function">  L5</span></span><br><span class="line"><span class="function">   LOCALVARIABLE <span class="keyword">this</span> LTest</span>; L0 L5 <span class="number">0</span></span><br><span class="line">   LOCALVARIABLE e Ljava/lang/Exception; L4 L3 <span class="number">1</span></span><br><span class="line">   MAXSTACK = <span class="number">2</span></span><br><span class="line">   MAXLOCALS = <span class="number">2</span></span><br></pre></td></tr></table></figure>
+<p>我们可以发现，每一个TRYCATCHBLOCK的配置都是一样的，只是异常的名字不一样。所以实际上mutil catch的实现和普通的实现没有太大的区别，当然从JVM的实现角度来看，mutil catch有可能可以优化Exception Handler的查找过程（纯猜测的，如果是线性查找，则效率是一样的）。不过有好处是可以减少class文件的体积，这个也比较有用，因为目前Java的class文件的大小是有限制的。参考这里；<a href="http://stackoverflow.com/questions/5497495/maximum-size-of-java-class-exception-table" target="_blank" rel="noopener">http://stackoverflow.com/questions/5497495/maximum-size-of-java-class-exception-table</a></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>Java中的异常的实现不是什么太神秘的东东，和人们的直觉的实现差不多。任何编程语言的异常机制都会有一定的开销，但是异常如果没有触发，实际上是没有开销的。</p>
+<p>异常在触发时，要new一个异常对象，再一层层地栈帧回退，每层都要查找异常处理表，开销还是比较大的。</p>
+<p>所在异常只应该用在合适的地方，如果异常像Switch那样用，那就悲剧了。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><p><a href="http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.athrow" target="_blank" rel="noopener">http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-6.html#jvms-6.5.athrow</a></p>
+</li>
+<li><p><a href="http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-2.html#jvms-2.10" target="_blank" rel="noopener">http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-2.html#jvms-2.10</a></p>
+</li>
+<li><p><a href="http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.7.3" target="_blank" rel="noopener">http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.7.3</a></p>
+</li>
+<li><p><a href="http://andrei.gmxhome.de/bytecode/" target="_blank" rel="noopener">http://andrei.gmxhome.de/bytecode/</a>    非常有用的分析Java 汇编代码的Eclipse插件</p>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/bytecode/" rel="tag"># bytecode</a>
+          
+            <a href="/tags/exception/" rel="tag"># exception</a>
+          
+            <a href="/tags/asm/" rel="tag"># asm</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/about-utf8/" rel="next" title="扯谈下UTF-8">
+                <i class="fa fa-chevron-left"></i> 扯谈下UTF-8
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/java-try-with-resources/" rel="prev" title="Java7里try-with-resources分析">
+                Java7里try-with-resources分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#athrow指令"><span class="nav-number">2.</span> <span class="nav-text">athrow指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#catch块的实现"><span class="nav-number">3.</span> <span class="nav-text">catch块的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#class文件格式分析"><span class="nav-number">4.</span> <span class="nav-text">class文件格式分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#finally块的实现"><span class="nav-number">5.</span> <span class="nav-text">finally块的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JDK7中mutil-catch的实现"><span class="nav-number">6.</span> <span class="nav-text">JDK7中mutil catch的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">7.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">8.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

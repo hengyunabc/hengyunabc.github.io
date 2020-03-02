@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="背景gRPC是google开源的高性能跨语言的RPC方案。gRPC的设计目标是在任何环境下运行，支持可插拔的负载均衡，跟踪，运行状况检查和身份验证。它不仅支持数据中心内部和跨数据中心的服务调用，它也适用于分布式计算的最后一公里，将设备，移动应用程序和浏览器连接到后端服务。  https://grpc.io/ https://github.com/grpc/grpc  GRPC设计的动机和原则 ht">
+<meta name="keywords" content="rpc,http2,grpc">
+<meta property="og:type" content="article">
+<meta property="og:title" content="思考gRPC ：为什么是HTTP&#x2F;2">
+<meta property="og:url" content="http://hengyunabc.github.io/thinking-about-grpc-http2/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="背景gRPC是google开源的高性能跨语言的RPC方案。gRPC的设计目标是在任何环境下运行，支持可插拔的负载均衡，跟踪，运行状况检查和身份验证。它不仅支持数据中心内部和跨数据中心的服务调用，它也适用于分布式计算的最后一公里，将设备，移动应用程序和浏览器连接到后端服务。  https://grpc.io/ https://github.com/grpc/grpc  GRPC设计的动机和原则 ht">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://hengyunabc.github.io/img/http2.svg">
+<meta property="og:image" content="http://hengyunabc.github.io/img/chrome-http2.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/wireshark-grpc.png">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="思考gRPC ：为什么是HTTP&#x2F;2">
+<meta name="twitter:description" content="背景gRPC是google开源的高性能跨语言的RPC方案。gRPC的设计目标是在任何环境下运行，支持可插拔的负载均衡，跟踪，运行状况检查和身份验证。它不仅支持数据中心内部和跨数据中心的服务调用，它也适用于分布式计算的最后一公里，将设备，移动应用程序和浏览器连接到后端服务。  https://grpc.io/ https://github.com/grpc/grpc  GRPC设计的动机和原则 ht">
+<meta name="twitter:image" content="http://hengyunabc.github.io/img/http2.svg">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/thinking-about-grpc-http2/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>思考gRPC ：为什么是HTTP/2 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/thinking-about-grpc-http2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">思考gRPC ：为什么是HTTP/2
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-07-13 20:03:54" itemprop="dateCreated datePublished" datetime="2018-07-13T20:03:54+00:00">2018-07-13</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>gRPC是google开源的高性能跨语言的RPC方案。gRPC的设计目标是在任何环境下运行，支持可插拔的负载均衡，跟踪，运行状况检查和身份验证。它不仅支持数据中心内部和跨数据中心的服务调用，它也适用于分布式计算的最后一公里，将设备，移动应用程序和浏览器连接到后端服务。</p>
+<ul>
+<li><a href="https://grpc.io/" target="_blank" rel="noopener">https://grpc.io/</a></li>
+<li><a href="https://github.com/grpc/grpc" target="_blank" rel="noopener">https://github.com/grpc/grpc</a></li>
+</ul>
+<h3 id="GRPC设计的动机和原则"><a href="#GRPC设计的动机和原则" class="headerlink" title="GRPC设计的动机和原则"></a>GRPC设计的动机和原则</h3><ul>
+<li><a href="https://grpc.io/blog/principles" target="_blank" rel="noopener">https://grpc.io/blog/principles</a></li>
+</ul>
+<p>个人觉得官方的文章令人印象深刻的点：</p>
+<ul>
+<li>内部有Stubby的框架，但是它不是基于任何一个标准的</li>
+<li>支持任意环境使用，支持物联网、手机、浏览器</li>
+<li>支持stream和流控</li>
+</ul>
+<h3 id="HTTP-2是什么"><a href="#HTTP-2是什么" class="headerlink" title="HTTP/2是什么"></a>HTTP/2是什么</h3><p>在正式讨论gRPC为什么选择HTTP/2之前，我们先来简单了解下HTTP/2。 </p>
+<p>HTTP/2可以简单用一个图片来介绍：</p>
+<p><img src="/img/http2.svg" alt="HTTP/2"></p>
+<p>来自：<a href="https://hpbn.co/" target="_blank" rel="noopener">https://hpbn.co/</a></p>
+<p>可以看到：</p>
+<ul>
+<li>HTTP/1里的header对应HTTP/2里的 HEADERS frame</li>
+<li>HTTP/1里的payload对应HTTP/2里的 DATA frame</li>
+</ul>
+<p>在Chrome浏览器里，打开<code>chrome://net-internals/#http2</code>，可以看到http2链接的信息。</p>
+<p><img src="/img/chrome-http2.png" alt="chrome-http2"></p>
+<p>目前很多网站都已经跑在HTTP/2上了，包括alibaba。</p>
+<h3 id="gRPC-over-HTTP-2"><a href="#gRPC-over-HTTP-2" class="headerlink" title="gRPC over HTTP/2"></a>gRPC over HTTP/2</h3><p>准确来说gRPC设计上是分层的，底层支持不同的协议，目前gRPC支持：</p>
+<ul>
+<li><a href="https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md" target="_blank" rel="noopener">gRPC over HTTP2</a></li>
+<li><a href="https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-WEB.md" target="_blank" rel="noopener">gRPC Web</a></li>
+</ul>
+<p>但是大多数情况下，讨论都是基于gRPC over HTTP2。</p>
+<p>下面从一个真实的gRPC <code>SayHello</code>请求，查看它在HTTP/2上是怎样实现的。用wireshark抓包：</p>
+<p><img src="/img/wireshark-grpc.png" alt="wireshark-grpc"></p>
+<p>可以看到下面这些Header：</p>
+<ul>
+<li>Header: :authority: localhost:50051</li>
+<li>Header: :path: /helloworld.Greeter/SayHello</li>
+<li>Header: :method: POST</li>
+<li>Header: :scheme: http</li>
+<li>Header: content-type: application/grpc</li>
+<li>Header: user-agent: grpc-java-netty/1.11.0</li>
+</ul>
+<p>然后请求的参数在DATA frame里：</p>
+<ul>
+<li>GRPC Message: /helloworld.Greeter/SayHello, Request</li>
+</ul>
+<p>简而言之，gGRPC把元数据放到HTTP/2 Headers里，请求参数序列化之后放到 DATA frame里。</p>
+<h3 id="基于HTTP-2-协议的优点"><a href="#基于HTTP-2-协议的优点" class="headerlink" title="基于HTTP/2 协议的优点"></a>基于HTTP/2 协议的优点</h3><h4 id="HTTP-2-是一个公开的标准"><a href="#HTTP-2-是一个公开的标准" class="headerlink" title="HTTP/2 是一个公开的标准"></a>HTTP/2 是一个公开的标准</h4><p>Google本身把这个事情想清楚了，它并没有把内部的Stubby开源，而是选择重新做。现在技术越来越开放，私有协议的空间越来越小。</p>
+<h4 id="HTTP-2-是一个经过实践检验的标准"><a href="#HTTP-2-是一个经过实践检验的标准" class="headerlink" title="HTTP/2 是一个经过实践检验的标准"></a>HTTP/2 是一个经过实践检验的标准</h4><p>HTTP/2是先有实践再有标准，这个很重要。很多不成功的标准都是先有一大堆厂商讨论出标准后有实现，导致混乱而不可用，比如CORBA。HTTP/2的前身是Google的<a href="https://en.wikipedia.org/wiki/SPDY" target="_blank" rel="noopener">SPDY</a>，没有Google的实践和推动，可能都不会有HTTP/2。</p>
+<h4 id="HTTP-2-天然支持物联网、手机、浏览器"><a href="#HTTP-2-天然支持物联网、手机、浏览器" class="headerlink" title="HTTP/2 天然支持物联网、手机、浏览器"></a>HTTP/2 天然支持物联网、手机、浏览器</h4><p>实际上先用上HTTP/2的也是手机和手机浏览器。移动互联网推动了HTTP/2的发展和普及。</p>
+<h3 id="基于HTTP-2-多语言客户端实现容易"><a href="#基于HTTP-2-多语言客户端实现容易" class="headerlink" title="基于HTTP/2 多语言客户端实现容易"></a>基于HTTP/2 多语言客户端实现容易</h3><p>只讨论协议本身的实现，不考虑序列化。</p>
+<ul>
+<li>每个流行的编程语言都会有成熟的HTTP/2 Client</li>
+<li>HTTP/2 Client是经过充分测试，可靠的</li>
+<li>用Client发送HTTP/2请求的难度远低于用socket发送数据包/解析数据包</li>
+</ul>
+<h4 id="HTTP-2支持Stream和流控"><a href="#HTTP-2支持Stream和流控" class="headerlink" title="HTTP/2支持Stream和流控"></a>HTTP/2支持Stream和流控</h4><p>在业界，有很多支持stream的方案，比如基于websocket的，或者<a href="https://github.com/rsocket/rsocket" target="_blank" rel="noopener">rsocket</a>。但是这些方案都不是通用的。</p>
+<p>HTTP/2里的Stream还可以设置优先级，尽管在rpc里可能用的比较少，但是一些复杂的场景可能会用到。</p>
+<h4 id="基于HTTP-2-在Gateway-Proxy很容易支持"><a href="#基于HTTP-2-在Gateway-Proxy很容易支持" class="headerlink" title="基于HTTP/2 在Gateway/Proxy很容易支持"></a>基于HTTP/2 在Gateway/Proxy很容易支持</h4><ul>
+<li>nginx对gRPC的支持：<a href="https://www.nginx.com/blog/nginx-1-13-10-grpc/" target="_blank" rel="noopener">https://www.nginx.com/blog/nginx-1-13-10-grpc/</a></li>
+<li>envoy对gRPC的支持：<a href="https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/grpc#" target="_blank" rel="noopener">https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/grpc#</a></li>
+</ul>
+<h4 id="HTTP-2-安全性有保证"><a href="#HTTP-2-安全性有保证" class="headerlink" title="HTTP/2 安全性有保证"></a>HTTP/2 安全性有保证</h4><ul>
+<li>HTTP/2 天然支持SSL，当然gRPC可以跑在clear text协议（即不加密）上。 </li>
+<li>很多私有协议的rpc可能自己包装了一层TLS支持，使用起来也非常复杂。开发者是否有足够的安全知识？使用者是否配置对了？运维者是否能正确理解？</li>
+<li>HTTP/2 在公有网络上的传输上有保证。比如这个<a href="https://en.wikipedia.org/wiki/CRIME" target="_blank" rel="noopener">CRIME攻击</a>，私有协议很难保证没有这样子的漏洞。</li>
+</ul>
+<h4 id="HTTP-2-鉴权成熟"><a href="#HTTP-2-鉴权成熟" class="headerlink" title="HTTP/2 鉴权成熟"></a>HTTP/2 鉴权成熟</h4><ul>
+<li>从HTTP/1发展起来的鉴权系统已经很成熟了，可以无缝用在HTTP/2上</li>
+<li>可以从前端到后端完全打通的鉴权，不需要做任何转换适配</li>
+</ul>
+<p>比如传统的rpc dubbo，需要写一个dubbo filter，还要考虑把鉴权相关的信息通过thread local传递进去。rpc协议本身也需要支持。总之，非常复杂。实际上绝大部分公司里的rpc都是没有鉴权的，可以随便调。</p>
+<h3 id="基于HTTP-2-的缺点"><a href="#基于HTTP-2-的缺点" class="headerlink" title="基于HTTP/2 的缺点"></a>基于HTTP/2 的缺点</h3><ul>
+<li><p>rpc的元数据的传输不够高效</p>
+<p>  尽管HPAC可以压缩HTTP Header，但是对于rpc来说，确定一个函数调用，可以简化为一个int，只要两端去协商过一次，后面直接查表就可以了，不需要像HPAC那样编码解码。<br>  可以考虑专门对gRPC做一个优化过的HTTP/2解析器，减少一些通用的处理，感觉可以提升性能。</p>
+</li>
+<li><p>HTTP/2 里一次gRPC调用需要解码两次</p>
+<p>  一次是HEADERS frame，一次是DATA frame。</p>
+</li>
+<li><p>HTTP/2 标准本身是只有一个TCP连接，但是实际在gRPC里是会有多个TCP连接，使用时需要注意。</p>
+</li>
+</ul>
+<p>gRPC选择基于HTTP/2，那么它的性能肯定不会是最顶尖的。但是对于rpc来说中庸的qps可以接受，通用和兼容性才是最重要的事情。</p>
+<ul>
+<li>官方的benchmark：<a href="https://grpc.io/docs/guides/benchmarking.html" target="_blank" rel="noopener">https://grpc.io/docs/guides/benchmarking.html</a></li>
+<li><a href="https://github.com/hank-whu/rpc-benchmark" target="_blank" rel="noopener">https://github.com/hank-whu/rpc-benchmark</a> </li>
+</ul>
+<h3 id="Google制定标准的能力"><a href="#Google制定标准的能力" class="headerlink" title="Google制定标准的能力"></a>Google制定标准的能力</h3><p>近10年来，Google制定标准的能力越来越强。下面列举一些标准：</p>
+<ul>
+<li>HTTP/2</li>
+<li>WebP图片格式</li>
+<li>WebRTC 网页即时通信</li>
+<li>VP9/AV1 视频编码标准</li>
+<li>Service Worker/PWA</li>
+</ul>
+<p>当然google也并不都会成功，很多事情它想推也失败了，比如Chrome的Native Client。</p>
+<p><strong>gRPC目前是k8s生态里的事实标准。 gRPC是否会成为更多地方，更大领域的RPC标准？</strong></p>
+<h3 id="为什么会出现gRPC"><a href="#为什么会出现gRPC" class="headerlink" title="为什么会出现gRPC"></a>为什么会出现gRPC</h3><p>准确来说为什么会出现基于HTTP/2的RPC？</p>
+<p>个人认为一个重要的原因是，在Cloud Native的潮流下，开放互通的需求必然会产生基于HTTP/2的RPC。即使没有gRPC，也会有其它基于HTTP/2的RPC。</p>
+<p>gRPC在Google的内部也是先用在Google Cloud Platform和公开的API上：<a href="https://opensource.google.com/projects/grpc" target="_blank" rel="noopener">https://opensource.google.com/projects/grpc</a></p>
+<p>尽管gRPC它可能替换不了内部的RPC实现，但是在开放互通的时代，不止在k8s上，gRPC会有越来越多的舞台可以施展。</p>
+<h3 id="链接"><a href="#链接" class="headerlink" title="链接"></a>链接</h3><ul>
+<li><a href="https://hpbn.co/" target="_blank" rel="noopener">https://hpbn.co/</a></li>
+<li><a href="https://grpc.io/blog/loadbalancing" target="_blank" rel="noopener">https://grpc.io/blog/loadbalancing</a></li>
+<li><a href="https://http2.github.io/faq" target="_blank" rel="noopener">https://http2.github.io/faq</a></li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/rpc/" rel="tag"># rpc</a>
+          
+            <a href="/tags/http2/" rel="tag"># http2</a>
+          
+            <a href="/tags/grpc/" rel="tag"># grpc</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/openjdk-asmtools/" rel="next" title="OpenJDK里的AsmTools简介">
+                <i class="fa fa-chevron-left"></i> OpenJDK里的AsmTools简介
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/thinking-about-grpc-protobuf/" rel="prev" title="思考gRPC ：为什么是protobuf">
+                思考gRPC ：为什么是protobuf <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#GRPC设计的动机和原则"><span class="nav-number">1.1.</span> <span class="nav-text">GRPC设计的动机和原则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HTTP-2是什么"><span class="nav-number">1.2.</span> <span class="nav-text">HTTP/2是什么</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#gRPC-over-HTTP-2"><span class="nav-number">1.3.</span> <span class="nav-text">gRPC over HTTP/2</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#基于HTTP-2-协议的优点"><span class="nav-number">1.4.</span> <span class="nav-text">基于HTTP/2 协议的优点</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-2-是一个公开的标准"><span class="nav-number">1.4.1.</span> <span class="nav-text">HTTP/2 是一个公开的标准</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-2-是一个经过实践检验的标准"><span class="nav-number">1.4.2.</span> <span class="nav-text">HTTP/2 是一个经过实践检验的标准</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-2-天然支持物联网、手机、浏览器"><span class="nav-number">1.4.3.</span> <span class="nav-text">HTTP/2 天然支持物联网、手机、浏览器</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#基于HTTP-2-多语言客户端实现容易"><span class="nav-number">1.5.</span> <span class="nav-text">基于HTTP/2 多语言客户端实现容易</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-2支持Stream和流控"><span class="nav-number">1.5.1.</span> <span class="nav-text">HTTP/2支持Stream和流控</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#基于HTTP-2-在Gateway-Proxy很容易支持"><span class="nav-number">1.5.2.</span> <span class="nav-text">基于HTTP/2 在Gateway/Proxy很容易支持</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-2-安全性有保证"><span class="nav-number">1.5.3.</span> <span class="nav-text">HTTP/2 安全性有保证</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#HTTP-2-鉴权成熟"><span class="nav-number">1.5.4.</span> <span class="nav-text">HTTP/2 鉴权成熟</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#基于HTTP-2-的缺点"><span class="nav-number">1.6.</span> <span class="nav-text">基于HTTP/2 的缺点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Google制定标准的能力"><span class="nav-number">1.7.</span> <span class="nav-text">Google制定标准的能力</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#为什么会出现gRPC"><span class="nav-number">1.8.</span> <span class="nav-text">为什么会出现gRPC</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#链接"><span class="nav-number">1.9.</span> <span class="nav-text">链接</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

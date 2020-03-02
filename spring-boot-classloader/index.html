@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言对spring boot本身启动原理的分析，请参考：http://hengyunabc.github.io/spring-boot-application-start-analysis/ Spring boot里的ClassLoader继承关系可以运行下面提供的demo，分别在不同的场景下运行，可以知道不同场景下的Spring boot应用的ClassLoader继承关系。 https://g">
+<meta name="keywords" content="java,spring-boot,spring,ClassLoader">
+<meta property="og:type" content="article">
+<meta property="og:title" content="深入Spring Boot：ClassLoader的继承关系和影响">
+<meta property="og:url" content="http://hengyunabc.github.io/spring-boot-classloader/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言对spring boot本身启动原理的分析，请参考：http://hengyunabc.github.io/spring-boot-application-start-analysis/ Spring boot里的ClassLoader继承关系可以运行下面提供的demo，分别在不同的场景下运行，可以知道不同场景下的Spring boot应用的ClassLoader继承关系。 https://g">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="深入Spring Boot：ClassLoader的继承关系和影响">
+<meta name="twitter:description" content="前言对spring boot本身启动原理的分析，请参考：http://hengyunabc.github.io/spring-boot-application-start-analysis/ Spring boot里的ClassLoader继承关系可以运行下面提供的demo，分别在不同的场景下运行，可以知道不同场景下的Spring boot应用的ClassLoader继承关系。 https://g">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/spring-boot-classloader/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>深入Spring Boot：ClassLoader的继承关系和影响 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/spring-boot-classloader/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">深入Spring Boot：ClassLoader的继承关系和影响
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017-08-19 16:01:41" itemprop="dateCreated datePublished" datetime="2017-08-19T16:01:41+00:00">2017-08-19</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>对spring boot本身启动原理的分析，请参考：<a href="http://hengyunabc.github.io/spring-boot-application-start-analysis/">http://hengyunabc.github.io/spring-boot-application-start-analysis/</a></p>
+<h2 id="Spring-boot里的ClassLoader继承关系"><a href="#Spring-boot里的ClassLoader继承关系" class="headerlink" title="Spring boot里的ClassLoader继承关系"></a>Spring boot里的ClassLoader继承关系</h2><p>可以运行下面提供的demo，分别在不同的场景下运行，可以知道不同场景下的Spring boot应用的ClassLoader继承关系。</p>
+<p><a href="https://github.com/hengyunabc/spring-boot-inside/tree/master/demo-classloader-context" target="_blank" rel="noopener">https://github.com/hengyunabc/spring-boot-inside/tree/master/demo-classloader-context</a></p>
+<p>分三种情况：</p>
+<h3 id="在IDE里，直接run-main函数"><a href="#在IDE里，直接run-main函数" class="headerlink" title="在IDE里，直接run main函数"></a>在IDE里，直接run main函数</h3><p>则Spring的ClassLoader直接是SystemClassLoader。ClassLoader的urls包含全部的jar和自己的<code>target/classes</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">========= Spring Boot Application ClassLoader Urls =============</span><br><span class="line">ClassLoader urls: sun.misc.Launcher$AppClassLoader@2a139a55</span><br><span class="line">file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/classes/</span><br><span class="line">file:/Users/hengyunabc/.m2/repository/org/springframework/cloud/spring-cloud-starter/1.1.9.RELEASE/spring-cloud-starter-1.1.9.RELEASE.jar</span><br><span class="line">file:/Users/hengyunabc/.m2/repository/org/springframework/boot/spring-boot-starter/1.4.7.RELEASE/spring-boot-starter-1.4.7.RELEASE.jar</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<h3 id="以fat-jar运行"><a href="#以fat-jar运行" class="headerlink" title="以fat jar运行"></a>以fat jar运行</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mvn clean package</span><br><span class="line">java -jar target/demo-classloader-context-0.0.1-SNAPSHOT.jar</span><br></pre></td></tr></table></figure>
+<p>执行应用的main函数的ClassLoader是<code>LaunchedURLClassLoader</code>，它的parent是<code>SystemClassLoader</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">========= ClassLoader Tree=============</span><br><span class="line">org.springframework.boot.loader.LaunchedURLClassLoader@1218025c</span><br><span class="line">- sun.misc.Launcher$AppClassLoader@6bc7c054</span><br><span class="line">-- sun.misc.Launcher$ExtClassLoader@85ede7b</span><br></pre></td></tr></table></figure>
+<p>并且<code>LaunchedURLClassLoader</code>的urls是 fat jar里的<code>BOOT-INF/classes!/</code>目录和<code>BOOT-INF/lib</code>里的所有jar。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">========= Spring Boot Application ClassLoader Urls =============</span><br><span class="line">ClassLoader urls: org.springframework.boot.loader.LaunchedURLClassLoader@1218025c</span><br><span class="line">jar:file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo-classloader-context-0.0.1-SNAPSHOT.jar!/BOOT-INF/classes!/</span><br><span class="line">jar:file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo-classloader-context-0.0.1-SNAPSHOT.jar!/BOOT-INF/lib/spring-boot-1.4.7.RELEASE.jar!/</span><br><span class="line">jar:file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo-classloader-context-0.0.1-SNAPSHOT.jar!/BOOT-INF/lib/spring-web-4.3.9.RELEASE.jar!/</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p><code>SystemClassLoader</code>的urls是<code>demo-classloader-context-0.0.1-SNAPSHOT.jar</code>本身。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">========= System ClassLoader Urls =============</span><br><span class="line">ClassLoader urls: sun.misc.Launcher$AppClassLoader@6bc7c054</span><br><span class="line">file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo-classloader-context-0.0.1-SNAPSHOT.jar</span><br></pre></td></tr></table></figure>
+<h3 id="以解压目录运行"><a href="#以解压目录运行" class="headerlink" title="以解压目录运行"></a>以解压目录运行</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mvn clean package</span><br><span class="line">cd target</span><br><span class="line">unzip demo-classloader-context-0.0.1-SNAPSHOT.jar -d demo</span><br><span class="line">cd demo</span><br><span class="line">java org.springframework.boot.loader.PropertiesLauncher</span><br></pre></td></tr></table></figure>
+<p>执行应用的main函数的ClassLoader是<code>LaunchedURLClassLoader</code>，它的parent是<code>SystemClassLoader</code>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">========= ClassLoader Tree=============</span><br><span class="line">org.springframework.boot.loader.LaunchedURLClassLoader@4aa298b7</span><br><span class="line">- sun.misc.Launcher$AppClassLoader@2a139a55</span><br><span class="line">-- sun.misc.Launcher$ExtClassLoader@1b6d3586</span><br></pre></td></tr></table></figure>
+<p><code>LaunchedURLClassLoader</code>的urls是解压目录里的<code>BOOT-INF/classes/</code>和<code>/BOOT-INF/lib/</code>下面的jar包。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">========= Spring Boot Application ClassLoader Urls =============</span><br><span class="line">ClassLoader urls: org.springframework.boot.loader.LaunchedURLClassLoader@4aa298b7</span><br><span class="line">file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo/BOOT-INF/classes/</span><br><span class="line">jar:file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo/BOOT-INF/lib/bcpkix-jdk15on-1.55.jar!/</span><br><span class="line">jar:file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo/BOOT-INF/lib/bcprov-jdk15on-1.55.jar!/</span><br><span class="line">jar:file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo/BOOT-INF/lib/classmate-1.3.3.jar!/</span><br></pre></td></tr></table></figure>
+<p><code>SystemClassLoader</code>的urls只有当前目录：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">========= System ClassLoader Urls =============</span><br><span class="line">ClassLoader urls: sun.misc.Launcher$AppClassLoader@2a139a55</span><br><span class="line">file:/Users/hengyunabc/code/java/spring-boot-inside/demo-classloader-context/target/demo/</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>其实还有两种运行方式：<code>mvn spring-boot:run</code> 和 <code>mvn spring-boot:run -Dfork=true</code>，但是比较少使用，不单独讨论。感觉兴趣的话可以自行跑下。</p>
+</blockquote>
+<h3 id="总结spring-boot里ClassLoader的继承关系"><a href="#总结spring-boot里ClassLoader的继承关系" class="headerlink" title="总结spring boot里ClassLoader的继承关系"></a>总结spring boot里ClassLoader的继承关系</h3><ul>
+<li>在IDE里main函数执行时，只有一个ClassLoader，也就是SystemClassLoader</li>
+<li><p>在以fat jar运行时，有一个<code>LaunchedURLClassLoader</code>，它的parent是SystemClassLoader</p>
+<p>  <code>LaunchedURLClassLoader</code>的urls是fat jar里的<code>BOOT-INF/classes</code>和<code>BOOT-INF/lib</code>下的jar。SystemClassLoader的urls是fat jar本身。</p>
+</li>
+<li><p>在解压目录（exploded directory）运行时，和fat jar类似，不过url都是目录形式。目录形式会有更好的兼容性。</p>
+</li>
+</ul>
+<h3 id="spring-boot-1-3-和-1-4-版本的区别"><a href="#spring-boot-1-3-和-1-4-版本的区别" class="headerlink" title="spring boot 1.3. 和 1.4. 版本的区别"></a>spring boot 1.3.<em> 和 1.4.</em> 版本的区别</h3><p>在spring boot 1.3.* 版本里</p>
+<ul>
+<li>应用的类和spring boot loader的类都是打包在一个fat jar里</li>
+<li>应用依赖的jar放在fat jar里的<code>/lib</code>下面。</li>
+</ul>
+<p>在spring boot 1.4.* 版本后</p>
+<ul>
+<li>spring boot loader的类放在fat jar里</li>
+<li>应用的类打包放在fat jar的<code>BOOT-INF/classes</code>目录里</li>
+<li>应用依赖的jar放在fat jar里的<code>/lib</code>下面。</li>
+</ul>
+<p>spring boot 1.4的打包结构改动是这个commit引入的<br><a href="https://github.com/spring-projects/spring-boot/commit/87fe0b2adeef85c842c009bfeebac1c84af8a5d7" target="_blank" rel="noopener">https://github.com/spring-projects/spring-boot/commit/87fe0b2adeef85c842c009bfeebac1c84af8a5d7</a></p>
+<p>这个commit的本意是简化classloader的继承关系，以一种直观的parent优先的方式来实现<code>LaunchedURLClassLoader</code>，同时打包结构和传统的war包应用更接近。</p>
+<p>但是这个改动引起了很多复杂的问题，从上面我们分析的ClassLoader继承关系就有点头晕了。</p>
+<h2 id="目前的ClassLoader继承关系带来的一些影响"><a href="#目前的ClassLoader继承关系带来的一些影响" class="headerlink" title="目前的ClassLoader继承关系带来的一些影响"></a>目前的ClassLoader继承关系带来的一些影响</h2><p>有很多用户可能会发现，一些代码在IDE里跑得很好，但是在实际部署运行时不工作。很多时候就是ClassLoader的结构引起的，下面分析一些案例。</p>
+<h3 id="demo-jar-BOOT-INF-classes-这样子url不工作"><a href="#demo-jar-BOOT-INF-classes-这样子url不工作" class="headerlink" title="demo.jar!/BOOT-INF/classes!/ 这样子url不工作"></a><code>demo.jar!/BOOT-INF/classes!/</code> 这样子url不工作</h3><p>因为spring boot是扩展了标准的jar协议，让它支持多层的jar in jar，还有directory in jar。参考<a href="http://hengyunabc.github.io/spring-boot-application-start-analysis/">spring boot应用启动原理分析</a></p>
+<p>在spring boot 1.3的时候尽管会有jar in jar，但是一些比较健壮的代码可以处理这种情况，比如tomcat8自己就支持jar in jar。</p>
+<p>但是绝大部分代码都不会支持像<code>demo.jar!/BOOT-INF/classes!/</code> 这样子directory in jar的多重url，所以在spring boot1.4里，很多库的代码都会失效。</p>
+<h3 id="demo-jar-META-INF-resources-下的资源问题"><a href="#demo-jar-META-INF-resources-下的资源问题" class="headerlink" title="demo.jar!/META-INF/resources 下的资源问题"></a><code>demo.jar!/META-INF/resources</code> 下的资源问题</h3><p>在servlet 3.0规范里，应用可以把静态资源放在<code>META-INF/resources</code>下面，servlet container会支持读取。但是从上面的继承结果，我们可以发现一个问题：</p>
+<ul>
+<li>应用以fat jar来启动，启动embedded tomcat的ClassLoader是<code>LaunchedURLClassLoader</code></li>
+<li><code>LaunchedURLClassLoader</code>的urls并没有fat jar本身</li>
+<li>应用的main函数所在的模块的<code>src/main/resources/META-INF/resources</code>目录被打包到了fat jar里，也就是<code>demo.jar!/META-INF/resources</code></li>
+<li>应用的fat jar是SystemClassLoader的url，也就是<code>LaunchedURLClassLoader</code>的parent</li>
+</ul>
+<p>这样子就造成了一些奇怪的现象：</p>
+<ul>
+<li>应用直接用自己的ClassLoader.getResources()是可以获取到<code>META-INF/resources</code>的资源的</li>
+<li>但是embedded tomcat并没有把fat jar本身加入到它的 ResourcesSet 里，因为它在启动时ClassLoader是<code>LaunchedURLClassLoader</code>，它只扫描自己的ClassLoader的<code>urls</code></li>
+<li>应用把资源放在其它的jar包的<code>META-INF/resources</code>下可以访问到，把资源放在自己的main函数的<code>src/main/resources/META-INF/resources</code>下时，访问不到了</li>
+</ul>
+<p>另外，spring boot的官方jsp的例子只支持war的打包格式，不支持fat jar，也是由这个引起的。</p>
+<h3 id="getResource-quot-quot-和-getResources-quot-quot-的返回值的问题"><a href="#getResource-quot-quot-和-getResources-quot-quot-的返回值的问题" class="headerlink" title="getResource(&quot;&quot;) 和 getResources(&quot;&quot;) 的返回值的问题"></a><code>getResource(&quot;&quot;)</code> 和 <code>getResources(&quot;&quot;)</code> 的返回值的问题</h3><p><code>getResource(&quot;&quot;)</code>的语义是返回ClassLoader的urls的第一个url，很多时候使用者以为这个就是它们自己的classes的目录，或者是jar的url。</p>
+<p>但是实际上，因为ClassLoader加载urls列表时，有随机性，和OS低层实现有关，并不能保证urls的顺序都是一样的。所以<code>getResource(&quot;&quot;)</code>很多时候返回的结果并不一样。</p>
+<p>但是很多库，或者应用依赖这个代码来定位扫描资源，这样子在spring boot下就不工作了。</p>
+<p>另外，值得注意的是spring boot在三种不同形式下运行，<code>getResources(&quot;&quot;)</code>返回的结果也不一样。用户可以自己改下demo里的代码，打印下结果。</p>
+<p>简而言之，不要依赖这两个API，最好自己放一个资源来定位。或者直接利用spring自身提供的资源扫描机制。</p>
+<h3 id="类似-classpath-service-xml-的通配问题"><a href="#类似-classpath-service-xml-的通配问题" class="headerlink" title="类似 classpath*:**-service.xml 的通配问题"></a>类似 <code>classpath*:**-service.xml</code> 的通配问题</h3><p>用户有多个代码模块，在不同模块下都放了多个<code>*-service.xml</code>的spring配置文件。</p>
+<p>用户如果使用类似<code>classpath*:**-service.xml</code>的通配符来加载资源的话，很有可能出现在IDE里跑时，可以正确加载，但是在fat jar下，却加载不到的问题。</p>
+<p>从spring自己的文档可以看到相关的解析：</p>
+<p><a href="https://docs.spring.io/spring/docs/4.3.9.RELEASE/javadoc-api/org/springframework/core/io/support/PathMatchingResourcePatternResolver.html" target="_blank" rel="noopener">https://docs.spring.io/spring/docs/4.3.9.RELEASE/javadoc-api/org/springframework/core/io/support/PathMatchingResourcePatternResolver.html</a></p>
+<blockquote>
+<p>WARNING: Note that “classpath<em>:” when combined with Ant-style patterns will only work reliably with at least one root directory before the pattern starts, unless the actual target files reside in the file system. This means that a pattern like “classpath</em>:*.xml” will not retrieve files from the root of jar files but rather only from the root of expanded directories. This originates from a limitation in the JDK’s ClassLoader.getResources() method which only returns file system locations for a passed-in empty String (indicating potential roots to search). This ResourcePatternResolver implementation is trying to mitigate the jar root lookup limitation through URLClassLoader introspection and “java.class.path” manifest evaluation; however, without portability guarantees.</p>
+</blockquote>
+<p>就是说使用 <code>classpath*</code>来匹配其它的jar包时，需要有一层目录在前面，不然的话是匹配不到的，这个是ClassLoader.getResources() 函数导致的。</p>
+<p>因为在IDE里跑时，应用所依赖的其它模块通常就是一个<code>classes</code>目录，所以通常没有问题。</p>
+<p>但是当以fat jar来跑时，其它的模块都被打包为一个jar，放在<code>BOOT-INF/lib</code>下面，所以这时通配就会失败。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>这个新的<code>BOOT-INF</code>打包格式有它的明显好处：更清晰，更接近war包的格式。</li>
+<li>spring boot的ClassLoader的结构修改带来的复杂问题，并非当初修改的人所能预见的</li>
+<li>很多问题需要理解spring boot的ClassLoader结构，否则不能找到根本原因</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/spring-boot/" rel="tag"># spring-boot</a>
+          
+            <a href="/tags/spring/" rel="tag"># spring</a>
+          
+            <a href="/tags/ClassLoader/" rel="tag"># ClassLoader</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/spring-placeholder-inject-failed-cases/" rel="next" title="深入Spring Boot：那些注入不了的Spring占位符（${}表达式）">
+                <i class="fa fa-chevron-left"></i> 深入Spring Boot：那些注入不了的Spring占位符（${}表达式）
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/spring-boot-context/" rel="prev" title="深入Spring Boot：Spring Context的继承关系和影响">
+                深入Spring Boot：Spring Context的继承关系和影响 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Spring-boot里的ClassLoader继承关系"><span class="nav-number">2.</span> <span class="nav-text">Spring boot里的ClassLoader继承关系</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#在IDE里，直接run-main函数"><span class="nav-number">2.1.</span> <span class="nav-text">在IDE里，直接run main函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#以fat-jar运行"><span class="nav-number">2.2.</span> <span class="nav-text">以fat jar运行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#以解压目录运行"><span class="nav-number">2.3.</span> <span class="nav-text">以解压目录运行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结spring-boot里ClassLoader的继承关系"><span class="nav-number">2.4.</span> <span class="nav-text">总结spring boot里ClassLoader的继承关系</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-boot-1-3-和-1-4-版本的区别"><span class="nav-number">2.5.</span> <span class="nav-text">spring boot 1.3. 和 1.4. 版本的区别</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#目前的ClassLoader继承关系带来的一些影响"><span class="nav-number">3.</span> <span class="nav-text">目前的ClassLoader继承关系带来的一些影响</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#demo-jar-BOOT-INF-classes-这样子url不工作"><span class="nav-number">3.1.</span> <span class="nav-text">demo.jar!/BOOT-INF/classes!/ 这样子url不工作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#demo-jar-META-INF-resources-下的资源问题"><span class="nav-number">3.2.</span> <span class="nav-text">demo.jar!/META-INF/resources 下的资源问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#getResource-quot-quot-和-getResources-quot-quot-的返回值的问题"><span class="nav-number">3.3.</span> <span class="nav-text">getResource(&quot;&quot;) 和 getResources(&quot;&quot;) 的返回值的问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#类似-classpath-service-xml-的通配问题"><span class="nav-number">3.4.</span> <span class="nav-text">类似 classpath*:**-service.xml 的通配问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

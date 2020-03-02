@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言本文分析的是spring boot 1.3. 的工作原理。spring boot 1.4. 之后打包结构发现了变化，增加了BOOT-INF目录，但是基本原理还是不变的。 关于spring boot 1.4.* 里ClassLoader的变化，可以参考：http://hengyunabc.github.io/spring-boot-classloader/ spring boot quick s">
+<meta name="keywords" content="spring-boot,spring,ClassLoader">
+<meta property="og:type" content="article">
+<meta property="og:title" content="spring boot应用启动原理分析">
+<meta property="og:url" content="http://hengyunabc.github.io/spring-boot-application-start-analysis/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言本文分析的是spring boot 1.3. 的工作原理。spring boot 1.4. 之后打包结构发现了变化，增加了BOOT-INF目录，但是基本原理还是不变的。 关于spring boot 1.4.* 里ClassLoader的变化，可以参考：http://hengyunabc.github.io/spring-boot-classloader/ spring boot quick s">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="spring boot应用启动原理分析">
+<meta name="twitter:description" content="前言本文分析的是spring boot 1.3. 的工作原理。spring boot 1.4. 之后打包结构发现了变化，增加了BOOT-INF目录，但是基本原理还是不变的。 关于spring boot 1.4.* 里ClassLoader的变化，可以参考：http://hengyunabc.github.io/spring-boot-classloader/ spring boot quick s">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/spring-boot-application-start-analysis/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>spring boot应用启动原理分析 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/spring-boot-application-start-analysis/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">spring boot应用启动原理分析
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2015-11-30 16:19:38" itemprop="dateCreated datePublished" datetime="2015-11-30T16:19:38+00:00">2015-11-30</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>本文分析的是spring boot 1.3.<em> 的工作原理。spring boot 1.4.</em> 之后打包结构发现了变化，增加了<code>BOOT-INF</code>目录，但是基本原理还是不变的。</p>
+<p>关于spring boot 1.4.* 里ClassLoader的变化，可以参考：<a href="http://hengyunabc.github.io/spring-boot-classloader/">http://hengyunabc.github.io/spring-boot-classloader/</a></p>
+<h2 id="spring-boot-quick-start"><a href="#spring-boot-quick-start" class="headerlink" title="spring boot quick start"></a>spring boot quick start</h2><p>在spring boot里，很吸引人的一个特性是可以直接把应用打包成为一个jar/war，然后这个jar/war是可以直接启动的，不需要另外配置一个Web Server。</p>
+<p>如果之前没有使用过spring boot可以通过下面的demo来感受下。<br>下面以这个工程为例，演示如何启动Spring boot项目：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">git <span class="built_in">clone</span> git@github.com:hengyunabc/spring-boot-demo.git</span><br><span class="line">mvn spring-boot-demo</span><br><span class="line">java -jar target/demo-0.0.1-SNAPSHOT.jar</span><br></pre></td></tr></table></figure>
+<p>如果使用的IDE是spring sts或者idea，可以通过向导来创建spring boot项目。</p>
+<p>也可以参考官方教程：<br><a href="http://docs.spring.io/spring-boot/docs/current-SNAPSHOT/reference/htmlsingle/#getting-started-first-application" target="_blank" rel="noopener">http://docs.spring.io/spring-boot/docs/current-SNAPSHOT/reference/htmlsingle/#getting-started-first-application</a></p>
+<h2 id="对spring-boot的两个疑问"><a href="#对spring-boot的两个疑问" class="headerlink" title="对spring boot的两个疑问"></a>对spring boot的两个疑问</h2><p>刚开始接触spring boot时，通常会有这些疑问</p>
+<ul>
+<li>spring boot如何启动的？</li>
+<li>spring boot embed tomcat是如何工作的？ 静态文件，jsp，网页模板这些是如何加载到的？</li>
+</ul>
+<p>下面来分析spring boot是如何做到的。</p>
+<h2 id="打包为单个jar时，spring-boot的启动方式"><a href="#打包为单个jar时，spring-boot的启动方式" class="headerlink" title="打包为单个jar时，spring boot的启动方式"></a>打包为单个jar时，spring boot的启动方式</h2><p>maven打包之后，会生成两个jar文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">demo-0.0.1-SNAPSHOT.jar</span><br><span class="line">demo-0.0.1-SNAPSHOT.jar.original</span><br></pre></td></tr></table></figure>
+<p>其中demo-0.0.1-SNAPSHOT.jar.original是默认的maven-jar-plugin生成的包。</p>
+<p>demo-0.0.1-SNAPSHOT.jar是spring boot maven插件生成的jar包，里面包含了应用的依赖，以及spring boot相关的类。下面称之为fat jar。</p>
+<p>先来查看spring boot打好的包的目录结构（不重要的省略掉）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">├── META-INF</span><br><span class="line">│   ├── MANIFEST.MF</span><br><span class="line">├── application.properties</span><br><span class="line">├── com</span><br><span class="line">│   └── example</span><br><span class="line">│       └── SpringBootDemoApplication.class</span><br><span class="line">├── lib</span><br><span class="line">│   ├── aopalliance-1.0.jar</span><br><span class="line">│   ├── spring-beans-4.2.3.RELEASE.jar</span><br><span class="line">│   ├── ...</span><br><span class="line">└── org</span><br><span class="line">    └── springframework</span><br><span class="line">        └── boot</span><br><span class="line">            └── loader</span><br><span class="line">                ├── ExecutableArchiveLauncher.class</span><br><span class="line">                ├── JarLauncher.class</span><br><span class="line">                ├── JavaAgentDetector.class</span><br><span class="line">                ├── LaunchedURLClassLoader.class</span><br><span class="line">                ├── Launcher.class</span><br><span class="line">                ├── MainMethodRunner.class</span><br><span class="line">                ├── ...</span><br></pre></td></tr></table></figure>
+<p>依次来看下这些内容。</p>
+<h3 id="MANIFEST-MF"><a href="#MANIFEST-MF" class="headerlink" title="MANIFEST.MF"></a>MANIFEST.MF</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Manifest-Version: 1.0</span><br><span class="line">Start-Class: com.example.SpringBootDemoApplication</span><br><span class="line">Implementation-Vendor-Id: com.example</span><br><span class="line">Spring-Boot-Version: 1.3.0.RELEASE</span><br><span class="line">Created-By: Apache Maven 3.3.3</span><br><span class="line">Build-Jdk: 1.8.0_60</span><br><span class="line">Implementation-Vendor: Pivotal Software, Inc.</span><br><span class="line">Main-Class: org.springframework.boot.loader.JarLauncher</span><br></pre></td></tr></table></figure>
+<p>可以看到有Main-Class是org.springframework.boot.loader.JarLauncher ，这个是jar启动的Main函数。</p>
+<p>还有一个Start-Class是com.example.SpringBootDemoApplication，这个是我们应用自己的Main函数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SpringBootDemoApplication</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        SpringApplication.run(SpringBootDemoApplication<span class="class">.<span class="keyword">class</span>, <span class="title">args</span>)</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="com-example-目录"><a href="#com-example-目录" class="headerlink" title="com/example 目录"></a>com/example 目录</h3><p>这下面放的是应用的.class文件。</p>
+<h3 id="lib目录"><a href="#lib目录" class="headerlink" title="lib目录"></a>lib目录</h3><p>这里存放的是应用的Maven依赖的jar包文件。<br>比如spring-beans，spring-mvc等jar。</p>
+<h3 id="org-springframework-boot-loader-目录"><a href="#org-springframework-boot-loader-目录" class="headerlink" title="org/springframework/boot/loader 目录"></a>org/springframework/boot/loader 目录</h3><p>这下面存放的是Spring boot loader的.class文件。</p>
+<h2 id="Archive的概念"><a href="#Archive的概念" class="headerlink" title="Archive的概念"></a>Archive的概念</h2><ul>
+<li>archive即归档文件，这个概念在linux下比较常见</li>
+<li>通常就是一个tar/zip格式的压缩包</li>
+<li>jar是zip格式</li>
+</ul>
+<p>在spring boot里，抽象出了Archive的概念。</p>
+<p>一个archive可以是一个jar（JarFileArchive），也可以是一个文件目录（ExplodedArchive）。可以理解为Spring boot抽象出来的统一访问资源的层。</p>
+<p>上面的demo-0.0.1-SNAPSHOT.jar 是一个Archive，然后demo-0.0.1-SNAPSHOT.jar里的/lib目录下面的每一个Jar包，也是一个Archive。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">Archive</span> </span>&#123;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> URL <span class="title">getUrl</span><span class="params">()</span></span>;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> String <span class="title">getMainClass</span><span class="params">()</span></span>;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> Collection&lt;Entry&gt; <span class="title">getEntries</span><span class="params">()</span></span>;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> <span class="keyword">abstract</span> List&lt;Archive&gt; <span class="title">getNestedArchives</span><span class="params">(EntryFilter filter)</span></span>;</span><br></pre></td></tr></table></figure>
+<p>可以看到Archive有一个自己的URL，比如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/</span><br></pre></td></tr></table></figure>
+<p>还有一个getNestedArchives函数，这个实际返回的是demo-0.0.1-SNAPSHOT.jar/lib下面的jar的Archive列表。它们的URL是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/lib/aopalliance-1.0.jar</span><br><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/lib/spring-beans-4.2.3.RELEASE.jar</span><br></pre></td></tr></table></figure>
+<h2 id="JarLauncher"><a href="#JarLauncher" class="headerlink" title="JarLauncher"></a>JarLauncher</h2><p>从MANIFEST.MF可以看到Main函数是JarLauncher，下面来分析它的工作流程。</p>
+<p>JarLauncher类的继承结构是：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">JarLauncher</span> <span class="keyword">extends</span> <span class="title">ExecutableArchiveLauncher</span></span></span><br><span class="line"><span class="class"><span class="title">class</span> <span class="title">ExecutableArchiveLauncher</span> <span class="keyword">extends</span> <span class="title">Launcher</span></span></span><br></pre></td></tr></table></figure>
+<h3 id="以demo-0-0-1-SNAPSHOT-jar创建一个Archive："><a href="#以demo-0-0-1-SNAPSHOT-jar创建一个Archive：" class="headerlink" title="以demo-0.0.1-SNAPSHOT.jar创建一个Archive："></a>以demo-0.0.1-SNAPSHOT.jar创建一个Archive：</h3><p>JarLauncher先找到自己所在的jar，即demo-0.0.1-SNAPSHOT.jar的路径，然后创建了一个Archive。</p>
+<p>下面的代码展示了如何从一个类找到它的加载的位置的技巧：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">final</span> Archive <span class="title">createArchive</span><span class="params">()</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">	ProtectionDomain protectionDomain = getClass().getProtectionDomain();</span><br><span class="line">	CodeSource codeSource = protectionDomain.getCodeSource();</span><br><span class="line">	URI location = (codeSource == <span class="keyword">null</span> ? <span class="keyword">null</span> : codeSource.getLocation().toURI());</span><br><span class="line">	String path = (location == <span class="keyword">null</span> ? <span class="keyword">null</span> : location.getSchemeSpecificPart());</span><br><span class="line">	<span class="keyword">if</span> (path == <span class="keyword">null</span>) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Unable to determine code source archive"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	File root = <span class="keyword">new</span> File(path);</span><br><span class="line">	<span class="keyword">if</span> (!root.exists()) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(</span><br><span class="line">				<span class="string">"Unable to determine code source archive from "</span> + root);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">return</span> (root.isDirectory() ? <span class="keyword">new</span> ExplodedArchive(root)</span><br><span class="line">			: <span class="keyword">new</span> JarFileArchive(root));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="获取lib-下面的jar，并创建一个LaunchedURLClassLoader"><a href="#获取lib-下面的jar，并创建一个LaunchedURLClassLoader" class="headerlink" title="获取lib/下面的jar，并创建一个LaunchedURLClassLoader"></a>获取lib/下面的jar，并创建一个LaunchedURLClassLoader</h3><p>JarLauncher创建好Archive之后，通过getNestedArchives函数来获取到demo-0.0.1-SNAPSHOT.jar/lib下面的所有jar文件，并创建为List<archive>。</archive></p>
+<p>注意上面提到，Archive都是有自己的URL的。</p>
+<p>获取到这些Archive的URL之后，也就获得了一个URL[]数组，用这个来构造一个自定义的ClassLoader：LaunchedURLClassLoader。</p>
+<p>创建好ClassLoader之后，再从MANIFEST.MF里读取到Start-Class，即com.example.SpringBootDemoApplication，然后创建一个新的线程来启动应用的Main函数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Launch the application given the archive file and a fully configured classloader.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">protected</span> <span class="keyword">void</span> <span class="title">launch</span><span class="params">(String[] args, String mainClass, ClassLoader classLoader)</span></span></span><br><span class="line"><span class="function">		<span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">	Runnable runner = createMainMethodRunner(mainClass, args, classLoader);</span><br><span class="line">	Thread runnerThread = <span class="keyword">new</span> Thread(runner);</span><br><span class="line">	runnerThread.setContextClassLoader(classLoader);</span><br><span class="line">	runnerThread.setName(Thread.currentThread().getName());</span><br><span class="line">	runnerThread.start();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Create the &#123;<span class="doctag">@code</span> MainMethodRunner&#125; used to launch the application.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">protected</span> Runnable <span class="title">createMainMethodRunner</span><span class="params">(String mainClass, String[] args,</span></span></span><br><span class="line"><span class="function"><span class="params">		ClassLoader classLoader)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">	Class&lt;?&gt; runnerClass = classLoader.loadClass(RUNNER_CLASS);</span><br><span class="line">	Constructor&lt;?&gt; constructor = runnerClass.getConstructor(String<span class="class">.<span class="keyword">class</span>,</span></span><br><span class="line">			String[].class);</span><br><span class="line">	<span class="keyword">return</span> (Runnable) constructor.newInstance(mainClass, args);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="LaunchedURLClassLoader"><a href="#LaunchedURLClassLoader" class="headerlink" title="LaunchedURLClassLoader"></a>LaunchedURLClassLoader</h3><p>LaunchedURLClassLoader和普通的URLClassLoader的不同之处是，它提供了从Archive里加载.class的能力。</p>
+<p>结合Archive提供的getEntries函数，就可以获取到Archive里的Resource。当然里面的细节还是很多的，下面再描述。</p>
+<h2 id="spring-boot应用启动流程总结"><a href="#spring-boot应用启动流程总结" class="headerlink" title="spring boot应用启动流程总结"></a>spring boot应用启动流程总结</h2><p>看到这里，可以总结下Spring Boot应用的启动流程：</p>
+<ol>
+<li>spring boot应用打包之后，生成一个fat jar，里面包含了应用依赖的jar包，还有Spring  boot loader相关的类</li>
+<li>Fat jar的启动Main函数是JarLauncher，它负责创建一个LaunchedURLClassLoader来加载/lib下面的jar，并以一个新线程启动应用的Main函数。</li>
+</ol>
+<h2 id="spring-boot-loader里的细节"><a href="#spring-boot-loader里的细节" class="headerlink" title="spring boot loader里的细节"></a>spring boot loader里的细节</h2><p>代码地址：<a href="https://github.com/spring-projects/spring-boot/tree/master/spring-boot-tools/spring-boot-loader" target="_blank" rel="noopener">https://github.com/spring-projects/spring-boot/tree/master/spring-boot-tools/spring-boot-loader</a></p>
+<h3 id="JarFile-URL的扩展"><a href="#JarFile-URL的扩展" class="headerlink" title="JarFile URL的扩展"></a>JarFile URL的扩展</h3><p>Spring boot能做到以一个fat jar来启动，最重要的一点是它实现了jar in jar的加载方式。</p>
+<p>JDK原始的JarFile URL的定义可以参考这里：</p>
+<p><a href="http://docs.oracle.com/javase/7/docs/api/java/net/JarURLConnection.html" target="_blank" rel="noopener">http://docs.oracle.com/javase/7/docs/api/java/net/JarURLConnection.html</a></p>
+<p>原始的JarFile URL是这样子的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/</span><br></pre></td></tr></table></figure>
+<p>jar包里的资源的URL：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/com/example/SpringBootDemoApplication.class</span><br></pre></td></tr></table></figure></p>
+<p>可以看到对于Jar里的资源，定义以’!/‘来分隔。原始的JarFile URL只支持一个’!/‘。</p>
+<p>Spring boot扩展了这个协议，让它支持多个’!/‘，就可以表示jar in jar，jar in directory的资源了。</p>
+<p>比如下面的URL表示demo-0.0.1-SNAPSHOT.jar这个jar里lib目录下面的spring-beans-4.2.3.RELEASE.jar里面的MANIFEST.MF：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/lib/spring-beans-4.2.3.RELEASE.jar!/META-INF/MANIFEST.MF</span><br></pre></td></tr></table></figure>
+<h4 id="自定义URLStreamHandler，扩展JarFile和JarURLConnection"><a href="#自定义URLStreamHandler，扩展JarFile和JarURLConnection" class="headerlink" title="自定义URLStreamHandler，扩展JarFile和JarURLConnection"></a>自定义URLStreamHandler，扩展JarFile和JarURLConnection</h4><p>在构造一个URL时，可以传递一个Handler，而JDK自带有默认的Handler类，应用可以自己注册Handler来处理自定义的URL。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">URL</span><span class="params">(String protocol,</span></span></span><br><span class="line"><span class="function"><span class="params">           String host,</span></span></span><br><span class="line"><span class="function"><span class="params">           <span class="keyword">int</span> port,</span></span></span><br><span class="line"><span class="function"><span class="params">           String file,</span></span></span><br><span class="line"><span class="function"><span class="params">           URLStreamHandler handler)</span></span></span><br><span class="line"><span class="function">    <span class="keyword">throws</span> MalformedURLException</span></span><br></pre></td></tr></table></figure>
+<p>参考：<br><a href="https://docs.oracle.com/javase/8/docs/api/java/net/URL.html#URL-java.lang.String-java.lang.String-int-java.lang.String-" target="_blank" rel="noopener">https://docs.oracle.com/javase/8/docs/api/java/net/URL.html#URL-java.lang.String-java.lang.String-int-java.lang.String-</a></p>
+<p>Spring boot通过注册了一个自定义的Handler类来处理多重jar in jar的逻辑。</p>
+<p>这个Handler内部会用SoftReference来缓存所有打开过的JarFile。</p>
+<p>在处理像下面这样的URL时，会循环处理’!/‘分隔符，从最上层出发，先构造出demo-0.0.1-SNAPSHOT.jar这个JarFile，再构造出spring-beans-4.2.3.RELEASE.jar这个JarFile，然后再构造出指向MANIFEST.MF的JarURLConnection。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jar:file:/tmp/target/demo-0.0.1-SNAPSHOT.jar!/lib/spring-beans-4.2.3.RELEASE.jar!/META-INF/MANIFEST.MF</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//org.springframework.boot.loader.jar.Handler</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Handler</span> <span class="keyword">extends</span> <span class="title">URLStreamHandler</span> </span>&#123;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String SEPARATOR = <span class="string">"!/"</span>;</span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> SoftReference&lt;Map&lt;File, JarFile&gt;&gt; rootFileCache;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> URLConnection <span class="title">openConnection</span><span class="params">(URL url)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		<span class="keyword">if</span> (<span class="keyword">this</span>.jarFile != <span class="keyword">null</span>) &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="keyword">new</span> JarURLConnection(url, <span class="keyword">this</span>.jarFile);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="keyword">new</span> JarURLConnection(url, getRootJarFileFromUrl(url));</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">catch</span> (Exception ex) &#123;</span><br><span class="line">			<span class="keyword">return</span> openFallbackConnection(url, ex);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">public</span> JarFile <span class="title">getRootJarFileFromUrl</span><span class="params">(URL url)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		String spec = url.getFile();</span><br><span class="line">		<span class="keyword">int</span> separatorIndex = spec.indexOf(SEPARATOR);</span><br><span class="line">		<span class="keyword">if</span> (separatorIndex == -<span class="number">1</span>) &#123;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> MalformedURLException(<span class="string">"Jar URL does not contain !/ separator"</span>);</span><br><span class="line">		&#125;</span><br><span class="line">		String name = spec.substring(<span class="number">0</span>, separatorIndex);</span><br><span class="line">		<span class="keyword">return</span> getRootJarFile(name);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="ClassLoader如何读取到Resource"><a href="#ClassLoader如何读取到Resource" class="headerlink" title="ClassLoader如何读取到Resource"></a>ClassLoader如何读取到Resource</h4><p>对于一个ClassLoader，它需要哪些能力？</p>
+<ul>
+<li>查找资源</li>
+<li>读取资源</li>
+</ul>
+<p>对应的API是：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> URL <span class="title">findResource</span><span class="params">(String name)</span></span></span><br><span class="line"><span class="function"><span class="keyword">public</span> InputStream <span class="title">getResourceAsStream</span><span class="params">(String name)</span></span></span><br></pre></td></tr></table></figure>
+<p>上面提到，Spring boot构造LaunchedURLClassLoader时，传递了一个URL[]数组。数组里是lib目录下面的jar的URL。</p>
+<p>对于一个URL，JDK或者ClassLoader如何知道怎么读取到里面的内容的？</p>
+<p>实际上流程是这样子的：</p>
+<ul>
+<li>LaunchedURLClassLoader.loadClass</li>
+<li>URL.getContent()</li>
+<li>URL.openConnection()</li>
+<li>Handler.openConnection(URL)</li>
+</ul>
+<p>最终调用的是JarURLConnection的getInputStream()函数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//org.springframework.boot.loader.jar.JarURLConnection</span></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> InputStream <span class="title">getInputStream</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">		connect();</span><br><span class="line">		<span class="keyword">if</span> (<span class="keyword">this</span>.jarEntryName.isEmpty()) &#123;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> IOException(<span class="string">"no entry name specified"</span>);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">this</span>.jarEntryData.getInputStream();</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<p>从一个URL，到最终读取到URL里的内容，整个过程是比较复杂的，总结下：</p>
+<ul>
+<li>spring boot注册了一个Handler来处理”jar:”这种协议的URL</li>
+<li>spring boot扩展了JarFile和JarURLConnection，内部处理jar in jar的情况</li>
+<li>在处理多重jar in jar的URL时，spring boot会循环处理，并缓存已经加载到的JarFile</li>
+<li>对于多重jar in jar，实际上是解压到了临时目录来处理，可以参考JarFileArchive里的代码</li>
+<li>在获取URL的InputStream时，最终获取到的是JarFile里的JarEntryData</li>
+</ul>
+<p>这里面的细节很多，只列出比较重要的一些点。</p>
+<p>然后，URLClassLoader是如何getResource的呢？</p>
+<p>URLClassLoader在构造时，有URL[]数组参数，它内部会用这个数组来构造一个URLClassPath:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">URLClassPath ucp = <span class="keyword">new</span> URLClassPath(urls);</span><br></pre></td></tr></table></figure>
+<p>在 URLClassPath 内部会为这些URLS 都构造一个Loader，然后在getResource时，会从这些Loader里一个个去尝试获取。<br>如果获取成功的话，就像下面那样包装为一个Resource。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Resource <span class="title">getResource</span><span class="params">(<span class="keyword">final</span> String name, <span class="keyword">boolean</span> check)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">final</span> URL url;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        url = <span class="keyword">new</span> URL(base, ParseUtil.encodePath(name, <span class="keyword">false</span>));</span><br><span class="line">    &#125; <span class="keyword">catch</span> (MalformedURLException e) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"name"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">final</span> URLConnection uc;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (check) &#123;</span><br><span class="line">            URLClassPath.check(url);</span><br><span class="line">        &#125;</span><br><span class="line">        uc = url.openConnection();</span><br><span class="line">        InputStream in = uc.getInputStream();</span><br><span class="line">        <span class="keyword">if</span> (uc <span class="keyword">instanceof</span> JarURLConnection) &#123;</span><br><span class="line">            <span class="comment">/* Need to remember the jar file so it can be closed</span></span><br><span class="line"><span class="comment">             * in a hurry.</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            JarURLConnection juc = (JarURLConnection)uc;</span><br><span class="line">            jarfile = JarLoader.checkJar(juc.getJarFile());</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> Resource() &#123;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> String <span class="title">getName</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> name; &#125;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> URL <span class="title">getURL</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> url; &#125;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> URL <span class="title">getCodeSourceURL</span><span class="params">()</span> </span>&#123; <span class="keyword">return</span> base; &#125;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> InputStream <span class="title">getInputStream</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> uc.getInputStream();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">int</span> <span class="title">getContentLength</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> uc.getContentLength();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>从代码里可以看到，实际上是调用了url.openConnection()。这样完整的链条就可以连接起来了。</p>
+<p>注意，URLClassPath这个类的代码在JDK里没有自带，在这里看到 <a href="http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/7u40-b43/sun/misc/URLClassPath.java#506" target="_blank" rel="noopener">http://grepcode.com/file/repository.grepcode.com/java/root/jdk/openjdk/7u40-b43/sun/misc/URLClassPath.java#506</a></p>
+<h3 id="在IDE-开放目录启动Spring-boot应用"><a href="#在IDE-开放目录启动Spring-boot应用" class="headerlink" title="在IDE/开放目录启动Spring boot应用"></a>在IDE/开放目录启动Spring boot应用</h3><p>在上面只提到在一个fat jar里启动Spring boot应用的过程，下面分析IDE里Spring boot是如何启动的。</p>
+<p>在IDE里，直接运行的Main函数是应用自己的Main函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">SpringBootDemoApplication</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">        SpringApplication.run(SpringBootDemoApplication<span class="class">.<span class="keyword">class</span>, <span class="title">args</span>)</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其实在IDE里启动Spring boot应用是最简单的一种情况，因为依赖的Jar都让IDE放到classpath里了，所以Spring boot直接启动就完事了。</p>
+<p>还有一种情况是在一个开放目录下启动Spring boot启动。所谓的开放目录就是把fat jar解压，然后直接启动应用。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java org.springframework.boot.loader.JarLauncher</span><br></pre></td></tr></table></figure>
+<p>这时，Spring boot会判断当前是否在一个目录里，如果是的，则构造一个ExplodedArchive（前面在jar里时是JarFileArchive），后面的启动流程类似fat jar的。</p>
+<h3 id="Embead-Tomcat的启动流程"><a href="#Embead-Tomcat的启动流程" class="headerlink" title="Embead Tomcat的启动流程"></a>Embead Tomcat的启动流程</h3><h4 id="判断是否在web环境"><a href="#判断是否在web环境" class="headerlink" title="判断是否在web环境"></a>判断是否在web环境</h4><p>spring boot在启动时，先通过一个简单的查找Servlet类的方式来判断是不是在web环境：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String[] WEB_ENVIRONMENT_CLASSES = &#123; <span class="string">"javax.servlet.Servlet"</span>,</span><br><span class="line">    <span class="string">"org.springframework.web.context.ConfigurableWebApplicationContext"</span> &#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">boolean</span> <span class="title">deduceWebEnvironment</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (String className : WEB_ENVIRONMENT_CLASSES) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!ClassUtils.isPresent(className, <span class="keyword">null</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果是的话，则会创建AnnotationConfigEmbeddedWebApplicationContext，否则Spring context就是AnnotationConfigApplicationContext：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//org.springframework.boot.SpringApplication</span></span><br><span class="line">	<span class="function"><span class="keyword">protected</span> ConfigurableApplicationContext <span class="title">createApplicationContext</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		Class&lt;?&gt; contextClass = <span class="keyword">this</span>.applicationContextClass;</span><br><span class="line">		<span class="keyword">if</span> (contextClass == <span class="keyword">null</span>) &#123;</span><br><span class="line">			<span class="keyword">try</span> &#123;</span><br><span class="line">				contextClass = Class.forName(<span class="keyword">this</span>.webEnvironment</span><br><span class="line">						? DEFAULT_WEB_CONTEXT_CLASS : DEFAULT_CONTEXT_CLASS);</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">catch</span> (ClassNotFoundException ex) &#123;</span><br><span class="line">				<span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(</span><br><span class="line">						<span class="string">"Unable create a default ApplicationContext, "</span></span><br><span class="line">								+ <span class="string">"please specify an ApplicationContextClass"</span>,</span><br><span class="line">						ex);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> (ConfigurableApplicationContext) BeanUtils.instantiate(contextClass);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="获取EmbeddedServletContainerFactory的实现类"><a href="#获取EmbeddedServletContainerFactory的实现类" class="headerlink" title="获取EmbeddedServletContainerFactory的实现类"></a>获取EmbeddedServletContainerFactory的实现类</h4><p>spring boot通过获取EmbeddedServletContainerFactory来启动对应的web服务器。</p>
+<p>常用的两个实现类是TomcatEmbeddedServletContainerFactory和JettyEmbeddedServletContainerFactory。</p>
+<p>启动Tomcat的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//TomcatEmbeddedServletContainerFactory</span></span><br><span class="line"><span class="meta">@Override</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> EmbeddedServletContainer <span class="title">getEmbeddedServletContainer</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">        ServletContextInitializer... initializers)</span> </span>&#123;</span><br><span class="line">    Tomcat tomcat = <span class="keyword">new</span> Tomcat();</span><br><span class="line">    File baseDir = (<span class="keyword">this</span>.baseDirectory != <span class="keyword">null</span> ? <span class="keyword">this</span>.baseDirectory</span><br><span class="line">            : createTempDir(<span class="string">"tomcat"</span>));</span><br><span class="line">    tomcat.setBaseDir(baseDir.getAbsolutePath());</span><br><span class="line">    Connector connector = <span class="keyword">new</span> Connector(<span class="keyword">this</span>.protocol);</span><br><span class="line">    tomcat.getService().addConnector(connector);</span><br><span class="line">    customizeConnector(connector);</span><br><span class="line">    tomcat.setConnector(connector);</span><br><span class="line">    tomcat.getHost().setAutoDeploy(<span class="keyword">false</span>);</span><br><span class="line">    tomcat.getEngine().setBackgroundProcessorDelay(-<span class="number">1</span>);</span><br><span class="line">    <span class="keyword">for</span> (Connector additionalConnector : <span class="keyword">this</span>.additionalTomcatConnectors) &#123;</span><br><span class="line">        tomcat.getService().addConnector(additionalConnector);</span><br><span class="line">    &#125;</span><br><span class="line">    prepareContext(tomcat.getHost(), initializers);</span><br><span class="line">    <span class="keyword">return</span> getTomcatEmbeddedServletContainer(tomcat);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>会为tomcat创建一个临时文件目录，如：<br>/tmp/tomcat.2233614112516545210.8080，做为tomcat的basedir。里面会放tomcat的临时文件，比如work目录。</p>
+<p>还会初始化Tomcat的一些Servlet，比如比较重要的default/jsp servlet：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">addDefaultServlet</span><span class="params">(Context context)</span> </span>&#123;</span><br><span class="line">    Wrapper defaultServlet = context.createWrapper();</span><br><span class="line">    defaultServlet.setName(<span class="string">"default"</span>);</span><br><span class="line">    defaultServlet.setServletClass(<span class="string">"org.apache.catalina.servlets.DefaultServlet"</span>);</span><br><span class="line">    defaultServlet.addInitParameter(<span class="string">"debug"</span>, <span class="string">"0"</span>);</span><br><span class="line">    defaultServlet.addInitParameter(<span class="string">"listings"</span>, <span class="string">"false"</span>);</span><br><span class="line">    defaultServlet.setLoadOnStartup(<span class="number">1</span>);</span><br><span class="line">    <span class="comment">// Otherwise the default location of a Spring DispatcherServlet cannot be set</span></span><br><span class="line">    defaultServlet.setOverridable(<span class="keyword">true</span>);</span><br><span class="line">    context.addChild(defaultServlet);</span><br><span class="line">    context.addServletMapping(<span class="string">"/"</span>, <span class="string">"default"</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">addJspServlet</span><span class="params">(Context context)</span> </span>&#123;</span><br><span class="line">    Wrapper jspServlet = context.createWrapper();</span><br><span class="line">    jspServlet.setName(<span class="string">"jsp"</span>);</span><br><span class="line">    jspServlet.setServletClass(getJspServletClassName());</span><br><span class="line">    jspServlet.addInitParameter(<span class="string">"fork"</span>, <span class="string">"false"</span>);</span><br><span class="line">    jspServlet.setLoadOnStartup(<span class="number">3</span>);</span><br><span class="line">    context.addChild(jspServlet);</span><br><span class="line">    context.addServletMapping(<span class="string">"*.jsp"</span>, <span class="string">"jsp"</span>);</span><br><span class="line">    context.addServletMapping(<span class="string">"*.jspx"</span>, <span class="string">"jsp"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="spring-boot的web应用如何访问Resource"><a href="#spring-boot的web应用如何访问Resource" class="headerlink" title="spring boot的web应用如何访问Resource"></a>spring boot的web应用如何访问Resource</h3><p>当spring boot应用被打包为一个fat jar时，是如何访问到web resource的？</p>
+<p>实际上是通过Archive提供的URL，然后通过Classloader提供的访问classpath resource的能力来实现的。</p>
+<h4 id="index-html"><a href="#index-html" class="headerlink" title="index.html"></a>index.html</h4><p>比如需要配置一个index.html，这个可以直接放在代码里的src/main/resources/static目录下。</p>
+<p>对于index.html欢迎页，spring boot在初始化时，就会创建一个ViewController来处理：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//ResourceProperties</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ResourceProperties</span> <span class="keyword">implements</span> <span class="title">ResourceLoaderAware</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String[] SERVLET_RESOURCE_LOCATIONS = &#123; <span class="string">"/"</span> &#125;;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String[] CLASSPATH_RESOURCE_LOCATIONS = &#123;</span><br><span class="line">			<span class="string">"classpath:/META-INF/resources/"</span>, <span class="string">"classpath:/resources/"</span>,</span><br><span class="line">			<span class="string">"classpath:/static/"</span>, <span class="string">"classpath:/public/"</span> &#125;;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//WebMvcAutoConfigurationAdapter</span></span><br><span class="line">		<span class="meta">@Override</span></span><br><span class="line">		<span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">addViewControllers</span><span class="params">(ViewControllerRegistry registry)</span> </span>&#123;</span><br><span class="line">			Resource page = <span class="keyword">this</span>.resourceProperties.getWelcomePage();</span><br><span class="line">			<span class="keyword">if</span> (page != <span class="keyword">null</span>) &#123;</span><br><span class="line">				logger.info(<span class="string">"Adding welcome page: "</span> + page);</span><br><span class="line">				registry.addViewController(<span class="string">"/"</span>).setViewName(<span class="string">"forward:index.html"</span>);</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="template"><a href="#template" class="headerlink" title="template"></a>template</h4><p>像页面模板文件可以放在src/main/resources/template目录下。但这个实际上是模板的实现类自己处理的。比如ThymeleafProperties类里的：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> String DEFAULT_PREFIX = <span class="string">"classpath:/templates/"</span>;</span><br></pre></td></tr></table></figure>
+<h4 id="jsp"><a href="#jsp" class="headerlink" title="jsp"></a>jsp</h4><p>jsp页面和template类似。实际上是通过spring mvc内置的JstlView来处理的。</p>
+<p>可以通过配置spring.view.prefix来设定jsp页面的目录：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">spring.view.prefix: /WEB-INF/jsp/</span><br></pre></td></tr></table></figure>
+<h3 id="spring-boot里统一的错误页面的处理"><a href="#spring-boot里统一的错误页面的处理" class="headerlink" title="spring boot里统一的错误页面的处理"></a>spring boot里统一的错误页面的处理</h3><p>对于错误页面，Spring boot也是通过创建一个BasicErrorController来统一处理的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Controller</span></span><br><span class="line"><span class="meta">@RequestMapping</span>(<span class="string">"$&#123;server.error.path:$&#123;error.path:/error&#125;&#125;"</span>)</span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">BasicErrorController</span> <span class="keyword">extends</span> <span class="title">AbstractErrorController</span></span></span><br></pre></td></tr></table></figure>
+<p>对应的View是一个简单的HTML提醒：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="meta">@ConditionalOnProperty</span>(prefix = <span class="string">"server.error.whitelabel"</span>, name = <span class="string">"enabled"</span>, matchIfMissing = <span class="keyword">true</span>)</span><br><span class="line"><span class="meta">@Conditional</span>(ErrorTemplateMissingCondition<span class="class">.<span class="keyword">class</span>)</span></span><br><span class="line"><span class="class"><span class="title">protected</span> <span class="title">static</span> <span class="title">class</span> <span class="title">WhitelabelErrorViewConfiguration</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">final</span> SpelView defaultErrorView = <span class="keyword">new</span> SpelView(</span><br><span class="line">			<span class="string">"&lt;html&gt;&lt;body&gt;&lt;h1&gt;Whitelabel Error Page&lt;/h1&gt;"</span></span><br><span class="line">					+ <span class="string">"&lt;p&gt;This application has no explicit mapping for /error, so you are seeing this as a fallback.&lt;/p&gt;"</span></span><br><span class="line">					+ <span class="string">"&lt;div id='created'&gt;$&#123;timestamp&#125;&lt;/div&gt;"</span></span><br><span class="line">					+ <span class="string">"&lt;div&gt;There was an unexpected error (type=$&#123;error&#125;, status=$&#123;status&#125;).&lt;/div&gt;"</span></span><br><span class="line">					+ <span class="string">"&lt;div&gt;$&#123;message&#125;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;"</span>);</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Bean</span>(name = <span class="string">"error"</span>)</span><br><span class="line">	<span class="meta">@ConditionalOnMissingBean</span>(name = <span class="string">"error"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> View <span class="title">defaultErrorView</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">this</span>.defaultErrorView;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<p>spring boot的这个做法很好，避免了传统的web应用来出错时，默认抛出异常，容易泄密。</p>
+<h3 id="spring-boot应用的maven打包过程"><a href="#spring-boot应用的maven打包过程" class="headerlink" title="spring boot应用的maven打包过程"></a>spring boot应用的maven打包过程</h3><p>先通过maven-shade-plugin生成一个包含依赖的jar，再通过spring-boot-maven-plugin插件把spring boot loader相关的类，还有MANIFEST.MF打包到jar里。</p>
+<h3 id="spring-boot里有颜色日志的实现"><a href="#spring-boot里有颜色日志的实现" class="headerlink" title="spring boot里有颜色日志的实现"></a>spring boot里有颜色日志的实现</h3><p>当在shell里启动spring boot应用时，会发现它的logger输出是有颜色的，这个特性很有意思。</p>
+<p>可以通过这个设置来关闭：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">spring.output.ansi.enabled=false</span><br></pre></td></tr></table></figure>
+<p>原理是通过AnsiOutputApplicationListener ，这个来获取这个配置，然后设置logback在输出时，加了一个 ColorConverter，通过org.springframework.boot.ansi.AnsiOutput ，对一些字段进行了渲染。</p>
+<h2 id="一些代码小技巧"><a href="#一些代码小技巧" class="headerlink" title="一些代码小技巧"></a>一些代码小技巧</h2><h4 id="实现ClassLoader时，支持JDK7并行加载"><a href="#实现ClassLoader时，支持JDK7并行加载" class="headerlink" title="实现ClassLoader时，支持JDK7并行加载"></a>实现ClassLoader时，支持JDK7并行加载</h4><p>可以参考LaunchedURLClassLoader里的LockProvider</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">LaunchedURLClassLoader</span> <span class="keyword">extends</span> <span class="title">URLClassLoader</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> LockProvider LOCK_PROVIDER = setupLockProvider();</span><br><span class="line">	<span class="function"><span class="keyword">private</span> <span class="keyword">static</span> LockProvider <span class="title">setupLockProvider</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			ClassLoader.registerAsParallelCapable();</span><br><span class="line">			<span class="keyword">return</span> <span class="keyword">new</span> Java7LockProvider();</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">catch</span> (NoSuchMethodError ex) &#123;</span><br><span class="line">			<span class="keyword">return</span> <span class="keyword">new</span> LockProvider();</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="keyword">protected</span> Class&lt;?&gt; loadClass(String name, <span class="keyword">boolean</span> resolve)</span><br><span class="line">			<span class="keyword">throws</span> ClassNotFoundException &#123;</span><br><span class="line">		<span class="keyword">synchronized</span> (LaunchedURLClassLoader.LOCK_PROVIDER.getLock(<span class="keyword">this</span>, name)) &#123;</span><br><span class="line">			Class&lt;?&gt; loadedClass = findLoadedClass(name);</span><br><span class="line">			<span class="keyword">if</span> (loadedClass == <span class="keyword">null</span>) &#123;</span><br><span class="line">				Handler.setUseFastConnectionExceptions(<span class="keyword">true</span>);</span><br><span class="line">				<span class="keyword">try</span> &#123;</span><br><span class="line">					loadedClass = doLoadClass(name);</span><br><span class="line">				&#125;</span><br><span class="line">				<span class="keyword">finally</span> &#123;</span><br><span class="line">					Handler.setUseFastConnectionExceptions(<span class="keyword">false</span>);</span><br><span class="line">				&#125;</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">if</span> (resolve) &#123;</span><br><span class="line">				resolveClass(loadedClass);</span><br><span class="line">			&#125;</span><br><span class="line">			<span class="keyword">return</span> loadedClass;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="检测jar包是否通过agent加载的"><a href="#检测jar包是否通过agent加载的" class="headerlink" title="检测jar包是否通过agent加载的"></a>检测jar包是否通过agent加载的</h4><p>InputArgumentsJavaAgentDetector，原理是检测jar的URL是否有”-javaagent:”的前缀。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> String JAVA_AGENT_PREFIX = <span class="string">"-javaagent:"</span>;</span><br></pre></td></tr></table></figure>
+<h4 id="获取进程的PID"><a href="#获取进程的PID" class="headerlink" title="获取进程的PID"></a>获取进程的PID</h4><p>ApplicationPid，可以获取PID。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">private</span> String <span class="title">getPid</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">try</span> &#123;</span><br><span class="line">		String jvmName = ManagementFactory.getRuntimeMXBean().getName();</span><br><span class="line">		<span class="keyword">return</span> jvmName.split(<span class="string">"@"</span>)[<span class="number">0</span>];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">catch</span> (Throwable ex) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h4 id="包装Logger类"><a href="#包装Logger类" class="headerlink" title="包装Logger类"></a>包装Logger类</h4><p>spring boot里自己包装了一套logger，支持java, log4j, log4j2, logback，以后有需要自己包装logger时，可以参考这个。</p>
+<p>在org.springframework.boot.logging包下面。</p>
+<h4 id="获取原始启动的main函数"><a href="#获取原始启动的main函数" class="headerlink" title="获取原始启动的main函数"></a>获取原始启动的main函数</h4><p>通过堆栈里获取的方式，判断main函数，找到原始启动的main函数。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> Class&lt;?&gt; deduceMainApplicationClass() &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        StackTraceElement[] stackTrace = <span class="keyword">new</span> RuntimeException().getStackTrace();</span><br><span class="line">        <span class="keyword">for</span> (StackTraceElement stackTraceElement : stackTrace) &#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="string">"main"</span>.equals(stackTraceElement.getMethodName())) &#123;</span><br><span class="line">                <span class="keyword">return</span> Class.forName(stackTraceElement.getClassName());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">catch</span> (ClassNotFoundException ex) &#123;</span><br><span class="line">        <span class="comment">// Swallow and continue</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="spirng-boot的一些缺点："><a href="#spirng-boot的一些缺点：" class="headerlink" title="spirng boot的一些缺点："></a>spirng boot的一些缺点：</h2><p>当spring boot应用以一个fat jar方式运行时，会遇到一些问题。以下是个人看法：</p>
+<ul>
+<li>日志不知道放哪，默认是输出到stdout的</li>
+<li>数据目录不知道放哪, jenkinns的做法是放到 ${user.home}/.jenkins 下面</li>
+<li>相对目录API不能使用，servletContext.getRealPath(“/“) 返回的是NULL</li>
+<li>spring boot应用喜欢把配置都写到代码里，有时会带来混乱。一些简单可以用xml来表达的配置可能会变得难读，而且凌乱。</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>spring boot通过扩展了jar协议，抽象出Archive概念，和配套的JarFile，JarUrlConnection，LaunchedURLClassLoader，从而实现了上层应用无感知的all in one的开发体验。尽管Executable war并不是spring提出的概念，但spring boot让它发扬光大。</p>
+<p>spring boot是一个惊人的项目，可以说是spring的第二春，spring-cloud-config, spring-session, metrics, remote shell等都是深爱开发者喜爱的项目、特性。几乎可以肯定设计者是有丰富的一线开发经验，深知开发人员的痛点。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/spring-boot/" rel="tag"># spring-boot</a>
+          
+            <a href="/tags/spring/" rel="tag"># spring</a>
+          
+            <a href="/tags/ClassLoader/" rel="tag"># ClassLoader</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/java-serialization-security/" rel="next" title="禁止JVM执行外部命令Runtime.exec -- 由Apache Commons Collections漏洞引发的思考">
+                <i class="fa fa-chevron-left"></i> 禁止JVM执行外部命令Runtime.exec -- 由Apache Commons Collections漏洞引发的思考
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/spring-boot-executable-jar/" rel="prev" title="spring boot executable jar/war 原理">
+                spring boot executable jar/war 原理 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#spring-boot-quick-start"><span class="nav-number">2.</span> <span class="nav-text">spring boot quick start</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对spring-boot的两个疑问"><span class="nav-number">3.</span> <span class="nav-text">对spring boot的两个疑问</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#打包为单个jar时，spring-boot的启动方式"><span class="nav-number">4.</span> <span class="nav-text">打包为单个jar时，spring boot的启动方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MANIFEST-MF"><span class="nav-number">4.1.</span> <span class="nav-text">MANIFEST.MF</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#com-example-目录"><span class="nav-number">4.2.</span> <span class="nav-text">com/example 目录</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#lib目录"><span class="nav-number">4.3.</span> <span class="nav-text">lib目录</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#org-springframework-boot-loader-目录"><span class="nav-number">4.4.</span> <span class="nav-text">org/springframework/boot/loader 目录</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Archive的概念"><span class="nav-number">5.</span> <span class="nav-text">Archive的概念</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JarLauncher"><span class="nav-number">6.</span> <span class="nav-text">JarLauncher</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#以demo-0-0-1-SNAPSHOT-jar创建一个Archive："><span class="nav-number">6.1.</span> <span class="nav-text">以demo-0.0.1-SNAPSHOT.jar创建一个Archive：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#获取lib-下面的jar，并创建一个LaunchedURLClassLoader"><span class="nav-number">6.2.</span> <span class="nav-text">获取lib/下面的jar，并创建一个LaunchedURLClassLoader</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LaunchedURLClassLoader"><span class="nav-number">6.3.</span> <span class="nav-text">LaunchedURLClassLoader</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#spring-boot应用启动流程总结"><span class="nav-number">7.</span> <span class="nav-text">spring boot应用启动流程总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#spring-boot-loader里的细节"><span class="nav-number">8.</span> <span class="nav-text">spring boot loader里的细节</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#JarFile-URL的扩展"><span class="nav-number">8.1.</span> <span class="nav-text">JarFile URL的扩展</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#自定义URLStreamHandler，扩展JarFile和JarURLConnection"><span class="nav-number">8.1.1.</span> <span class="nav-text">自定义URLStreamHandler，扩展JarFile和JarURLConnection</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#ClassLoader如何读取到Resource"><span class="nav-number">8.1.2.</span> <span class="nav-text">ClassLoader如何读取到Resource</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#在IDE-开放目录启动Spring-boot应用"><span class="nav-number">8.2.</span> <span class="nav-text">在IDE/开放目录启动Spring boot应用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Embead-Tomcat的启动流程"><span class="nav-number">8.3.</span> <span class="nav-text">Embead Tomcat的启动流程</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#判断是否在web环境"><span class="nav-number">8.3.1.</span> <span class="nav-text">判断是否在web环境</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#获取EmbeddedServletContainerFactory的实现类"><span class="nav-number">8.3.2.</span> <span class="nav-text">获取EmbeddedServletContainerFactory的实现类</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-boot的web应用如何访问Resource"><span class="nav-number">8.4.</span> <span class="nav-text">spring boot的web应用如何访问Resource</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#index-html"><span class="nav-number">8.4.1.</span> <span class="nav-text">index.html</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#template"><span class="nav-number">8.4.2.</span> <span class="nav-text">template</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#jsp"><span class="nav-number">8.4.3.</span> <span class="nav-text">jsp</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-boot里统一的错误页面的处理"><span class="nav-number">8.5.</span> <span class="nav-text">spring boot里统一的错误页面的处理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-boot应用的maven打包过程"><span class="nav-number">8.6.</span> <span class="nav-text">spring boot应用的maven打包过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#spring-boot里有颜色日志的实现"><span class="nav-number">8.7.</span> <span class="nav-text">spring boot里有颜色日志的实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#一些代码小技巧"><span class="nav-number">9.</span> <span class="nav-text">一些代码小技巧</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#实现ClassLoader时，支持JDK7并行加载"><span class="nav-number">9.0.1.</span> <span class="nav-text">实现ClassLoader时，支持JDK7并行加载</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#检测jar包是否通过agent加载的"><span class="nav-number">9.0.2.</span> <span class="nav-text">检测jar包是否通过agent加载的</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#获取进程的PID"><span class="nav-number">9.0.3.</span> <span class="nav-text">获取进程的PID</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#包装Logger类"><span class="nav-number">9.0.4.</span> <span class="nav-text">包装Logger类</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#获取原始启动的main函数"><span class="nav-number">9.0.5.</span> <span class="nav-text">获取原始启动的main函数</span></a></li></ol></li></ol><li class="nav-item nav-level-2"><a class="nav-link" href="#spirng-boot的一些缺点："><span class="nav-number">10.</span> <span class="nav-text">spirng boot的一些缺点：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">11.</span> <span class="nav-text">总结</span></a></li></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

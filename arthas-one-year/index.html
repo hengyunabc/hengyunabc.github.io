@@ -1,0 +1,1642 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="缘起最近看到一个很流行的标题，《开源XX年，star XXX，我是如何坚持的》。 看到这样的标题，忽然发觉Arthas从2018年9月开源以来，刚好一年了，正好在这个秋高气爽的时节做下总结和回顾。  Arthas是Alibaba开源的Java诊断工具，深受开发者喜爱。  Github： https://github.com/alibaba/arthas 文档：https://alibaba.git">
+<meta name="keywords" content="java,arthas,logger">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Arthas开源一周年，Github Star 16K，我们一直在坚持什么？">
+<meta property="og:url" content="http://hengyunabc.github.io/arthas-one-year/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="缘起最近看到一个很流行的标题，《开源XX年，star XXX，我是如何坚持的》。 看到这样的标题，忽然发觉Arthas从2018年9月开源以来，刚好一年了，正好在这个秋高气爽的时节做下总结和回顾。  Arthas是Alibaba开源的Java诊断工具，深受开发者喜爱。  Github： https://github.com/alibaba/arthas 文档：https://alibaba.git">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://alibaba.github.io/arthas/_images/arthas.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/1683936/65661356-05ca3480-e064-11e9-92ea-8cc21e45a71f.png">
+<meta property="og:image" content="https://opencollective.com/arthas/contributors.svg?width=890&button=false">
+<meta property="og:image" content="https://user-images.githubusercontent.com/1683936/65661477-5772bf00-e064-11e9-91c1-5cd32b09e7c6.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/1683936/65661495-5cd00980-e064-11e9-98e5-4b76956af1c4.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/1683936/65737523-619ec700-e111-11e9-8e3f-f91edfd33084.png">
+<meta property="og:image" content="http://hengyunabc.github.io/img/qrcode_gongzhonghao.jpg">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Arthas开源一周年，Github Star 16K，我们一直在坚持什么？">
+<meta name="twitter:description" content="缘起最近看到一个很流行的标题，《开源XX年，star XXX，我是如何坚持的》。 看到这样的标题，忽然发觉Arthas从2018年9月开源以来，刚好一年了，正好在这个秋高气爽的时节做下总结和回顾。  Arthas是Alibaba开源的Java诊断工具，深受开发者喜爱。  Github： https://github.com/alibaba/arthas 文档：https://alibaba.git">
+<meta name="twitter:image" content="https://alibaba.github.io/arthas/_images/arthas.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/arthas-one-year/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Arthas开源一周年，Github Star 16K，我们一直在坚持什么？ | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/arthas-one-year/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Arthas开源一周年，Github Star 16K，我们一直在坚持什么？
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019-09-27 20:58:28" itemprop="dateCreated datePublished" datetime="2019-09-27T20:58:28+00:00">2019-09-27</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="缘起"><a href="#缘起" class="headerlink" title="缘起"></a>缘起</h2><p>最近看到一个很流行的标题，《开源XX年，star XXX，我是如何坚持的》。</p>
+<p>看到这样的标题，忽然发觉Arthas从2018年9月开源以来，刚好一年了，正好在这个秋高气爽的时节做下总结和回顾。</p>
+<p><img src="https://alibaba.github.io/arthas/_images/arthas.png" alt="Arthas"></p>
+<p><code>Arthas</code>是Alibaba开源的Java诊断工具，深受开发者喜爱。</p>
+<ul>
+<li>Github： <a href="https://github.com/alibaba/arthas" target="_blank" rel="noopener">https://github.com/alibaba/arthas</a></li>
+<li>文档：<a href="https://alibaba.github.io/arthas" target="_blank" rel="noopener">https://alibaba.github.io/arthas</a></li>
+</ul>
+<p>回顾Arthas Star数的历史，一直保持快速增长，目前已经突破16K。</p>
+<p><img src="https://user-images.githubusercontent.com/1683936/65661356-05ca3480-e064-11e9-92ea-8cc21e45a71f.png" alt="Arthas Github Star历史曲线"></p>
+<p>感谢用户的支持，既是压力也是动力。在过去开源的一年里，Arthas发布了7个Release版本，我们一直坚持三点：</p>
+<ul>
+<li>持续改进易用性</li>
+<li>持续增加好用的命令</li>
+<li>从开源社区中获取力量，回报社区</li>
+</ul>
+<h2 id="持续改进易用性"><a href="#持续改进易用性" class="headerlink" title="持续改进易用性"></a>持续改进易用性</h2><p>Arthas一直把易用性放在第一位，在开源之后，我们做了下面的改进：</p>
+<ul>
+<li>开发arthas boot，支持Windows/Linux/Mac统一体验</li>
+<li>丝滑的自动补全，参考了jshell的体验</li>
+<li>高效的历史命令匹配，<code>Up/Down</code>直达</li>
+<li>改进类搜索匹配功能，更好支持lambda和内部类</li>
+<li>完善重定向机制</li>
+<li>支持JDK 9/10/11</li>
+<li>支持Docker</li>
+<li>支持rpm/deb包安装</li>
+</ul>
+<p>尽管我们在易用性下了很大的功夫，但是发现很多时候用户比较难入门，因此，我们参考了k8s的 Interactive Tutorial，推出了Arthas的在线教程：</p>
+<ul>
+<li><a href="https://alibaba.github.io/arthas/arthas-tutorials?language=cn&amp;id=arthas-basics" target="_blank" rel="noopener">Arthas基础教程</a></li>
+<li><a href="https://alibaba.github.io/arthas/arthas-tutorials?language=cn&amp;id=arthas-advanced" target="_blank" rel="noopener">Arthas进阶教程</a></li>
+</ul>
+<p>通过基础教程，可以在交互终端里一步步入门，通过进阶教程可以深入理解Arthas排查问题的案例。</p>
+<p>另外，为了方便用户大规模部署，我们实现了tunnel server和用户数据回报功能：</p>
+<ul>
+<li>增加tunnel server，统一管理Agent连接</li>
+<li>增加用户数据回报功能，方便做安全管控</li>
+</ul>
+<h2 id="持续增加好用的命令"><a href="#持续增加好用的命令" class="headerlink" title="持续增加好用的命令"></a>持续增加好用的命令</h2><p>Arthas号称是Java应用诊断利器，那么我们自己要对得起这个口号。在开源之后，Arthas持续增加了10多个命令。</p>
+<ul>
+<li>ognl      命令任意代码执行</li>
+<li>mc        线上内存编译器</li>
+<li>redefine  命令线上热更新代码</li>
+<li>logger    命令一键查看应用里的所有logger配置</li>
+<li>sysprop   查看更新System Properties</li>
+<li>sysenv    查看环境变量</li>
+<li>vmoption  查看更新VM option</li>
+<li>logger    查看logger配置，更新level</li>
+<li>mbean     查看JMX信息</li>
+<li>heapdump  堆内存快照</li>
+</ul>
+<p>下面重点介绍两个功能。</p>
+<h3 id="jad-mc-redefine-一条龙热更新线上代码"><a href="#jad-mc-redefine-一条龙热更新线上代码" class="headerlink" title="jad/mc/redefine 一条龙热更新线上代码"></a>jad/mc/redefine 一条龙热更新线上代码</h3><p>以 <a href="https://alibaba.github.io/arthas/arthas-tutorials?language=cn&amp;id=arthas-advanced" target="_blank" rel="noopener">Arthas在线教程</a> 里的<code>UserController</code>为例：</p>
+<ol>
+<li><p>使用jad反编译代码</p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jad --<span class="built_in">source</span>-only com.example.demo.arthas.user.UserController &gt; /tmp/UserController.java</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用vim编译代码</p>
+<p> 当 user id 小于1时，也正常返回，不抛出异常：</p>
+ <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@GetMapping</span>(<span class="string">"/user/&#123;id&#125;"</span>)</span><br><span class="line"><span class="function"><span class="keyword">public</span> User <span class="title">findUserById</span><span class="params">(@PathVariable Integer id)</span> </span>&#123;</span><br><span class="line">    logger.info(<span class="string">"id: &#123;&#125;"</span> , id);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (id != <span class="keyword">null</span> &amp;&amp; id &lt; <span class="number">1</span>) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> User(id, <span class="string">"name"</span> + id);</span><br><span class="line">        <span class="comment">// throw new IllegalArgumentException("id &lt; 1");</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> User(id, <span class="string">"name"</span> + id);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用<code>mc</code>命令编译修改后的<code>UserController.java</code></p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ mc /tmp/UserController.java -d /tmp</span><br><span class="line">Memory compiler output:</span><br><span class="line">/tmp/com/example/demo/arthas/user/UserController.class</span><br><span class="line">Affect(row-cnt:1) cost <span class="keyword">in</span> 346 ms</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>使用<code>redefine</code>命令，因为可以热更新代码</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ redefine /tmp/com/example/demo/arthas/user/UserController.class</span><br><span class="line">redefine success, size: 1</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h3 id="通过logger命令查看配置，修改level"><a href="#通过logger命令查看配置，修改level" class="headerlink" title="通过logger命令查看配置，修改level"></a>通过logger命令查看配置，修改level</h3><p>在网站压力大的时候（比如双11），有个缓解措施就是把应用的日志level修改为ERROR。 那么有两个问题：</p>
+<ul>
+<li>复杂应用的日志系统可能会有多个，那么哪个日志系统配置真正生效了？</li>
+<li>怎样在线上动态修改logger的level？</li>
+</ul>
+<p>通过<code>logger</code>命令，可以查看应用里logger的详细配置信息，比如<code>FileAppender</code>输出的文件，<code>AsyncAppender</code>是否<code>blocking</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">[arthas@2062]$ logger</span><br><span class="line"> name                                   ROOT</span><br><span class="line"> class                                  ch.qos.logback.classic.Logger</span><br><span class="line"> classLoader                            sun.misc.Launcher<span class="variable">$AppClassLoader</span>@2a139a55</span><br><span class="line"> classLoaderHash                        2a139a55</span><br><span class="line"> level                                  INFO</span><br><span class="line"> effectiveLevel                         INFO</span><br><span class="line"> additivity                             <span class="literal">true</span></span><br><span class="line"> codeSource                             file:/Users/hengyunabc/.m2/repository/ch/qos/logback/logback-classic/1.2.3/logback-classic-1.2.3.jar</span><br><span class="line"> appenders                              name            CONSOLE</span><br><span class="line">                                        class           ch.qos.logback.core.ConsoleAppender</span><br><span class="line">                                        classLoader     sun.misc.Launcher<span class="variable">$AppClassLoader</span>@2a139a55</span><br><span class="line">                                        classLoaderHash 2a139a55</span><br><span class="line">                                        target          System.out</span><br><span class="line">                                        name            APPLICATION</span><br><span class="line">                                        class           ch.qos.logback.core.rolling.RollingFileAppender</span><br><span class="line">                                        classLoader     sun.misc.Launcher<span class="variable">$AppClassLoader</span>@2a139a55</span><br><span class="line">                                        classLoaderHash 2a139a55</span><br><span class="line">                                        file            app.log</span><br><span class="line">                                        name            ASYNC</span><br><span class="line">                                        class           ch.qos.logback.classic.AsyncAppender</span><br><span class="line">                                        classLoader     sun.misc.Launcher<span class="variable">$AppClassLoader</span>@2a139a55</span><br><span class="line">                                        classLoaderHash 2a139a55</span><br><span class="line">                                        blocking        <span class="literal">false</span></span><br><span class="line">                                        appenderRef     [APPLICATION]</span><br></pre></td></tr></table></figure>
+<p>也可以在线修改logger的level：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[arthas@2062]$ logger --name ROOT --level debug</span><br><span class="line">update logger level success.</span><br></pre></td></tr></table></figure>
+<h2 id="从开源社区中获取力量，回报社区"><a href="#从开源社区中获取力量，回报社区" class="headerlink" title="从开源社区中获取力量，回报社区"></a>从开源社区中获取力量，回报社区</h2><h3 id="感谢67位Contributors"><a href="#感谢67位Contributors" class="headerlink" title="感谢67位Contributors"></a>感谢67位Contributors</h3><p>Arthas开源以来，一共有67位 Contributors，感谢他们贡献的改进：</p>
+<p> <img src="https://opencollective.com/arthas/contributors.svg?width=890&amp;button=false" alt="Arthas Contributors"></p>
+<p>社区提交了一系列的改进，下面列出一些点（不完整）：</p>
+<ul>
+<li>翻译了大部分英文文档的</li>
+<li>trace命令支持行号</li>
+<li>打包格式支持rpm/deb</li>
+<li>改进命令行提示符为 <code>arthas@pid</code></li>
+<li>改进对windows的支持</li>
+<li>增加<code>mbean</code>命令</li>
+<li>改进webconsole的体验</li>
+</ul>
+<p>另外，有83个公司/组织登记了他们的使用信息，欢迎更多的用户来登记：</p>
+<p><img src="https://user-images.githubusercontent.com/1683936/65661477-5772bf00-e064-11e9-91c1-5cd32b09e7c6.png" alt="Arthas Users"></p>
+<h3 id="洐生项目"><a href="#洐生项目" class="headerlink" title="洐生项目"></a>洐生项目</h3><p>基于Arthas，还产生了一些洐生项目，下面是其中两个：</p>
+<ul>
+<li>Bistoury: 去哪儿网开源的集成了Arthas的项目</li>
+<li>arthas-mvel: 一个使用MVEL脚本的fork</li>
+</ul>
+<h3 id="用户案例分享"><a href="#用户案例分享" class="headerlink" title="用户案例分享"></a>用户案例分享</h3><p>广大用户在使用Arthas排查问题过程中，分享了很多排查过程和心得，欢迎大家来分享。</p>
+<p><img src="https://user-images.githubusercontent.com/1683936/65661495-5cd00980-e064-11e9-98e5-4b76956af1c4.png" alt="Arthas用户案例分享"></p>
+<h3 id="回馈开源"><a href="#回馈开源" class="headerlink" title="回馈开源"></a>回馈开源</h3><p>Arthas本身使用了很多开源项目的代码，在开源过程中，我们给netty, ognl, cfr等都贡献了改进代码，回馈上游。</p>
+<h2 id="后记"><a href="#后记" class="headerlink" title="后记"></a>后记</h2><p> 在做Arthas宣传小册子时，Arthas的宣传语是：</p>
+<blockquote>
+<p>“赠人玫瑰之手，经久犹有余香”</p>
+</blockquote>
+<p>希望Arthas未来能帮助到更多的用户解决问题，也希望广大的开发者对Arthas提出更多的改进和建议。</p>
+<p>最后是抽奖环节，大家可以转发文章，在公众号后台留言自己和Arthas的故事，或者给Arthas提出建议，奖品是Arthas的卫衣一件：</p>
+<p><img src="https://user-images.githubusercontent.com/1683936/65737523-619ec700-e111-11e9-8e3f-f91edfd33084.png" alt="Arthas卫衣"></p>
+<h2 id="公众号"><a href="#公众号" class="headerlink" title="公众号"></a>公众号</h2><p>欢迎关注横云断岭的专栏，专注Java，Spring Boot，Arthas，Dubbo。</p>
+<p><img src="http://hengyunabc.github.io/img/qrcode_gongzhonghao.jpg" alt="横云断岭的专栏"></p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/arthas/" rel="tag"># arthas</a>
+          
+            <a href="/tags/logger/" rel="tag"># logger</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/arthas-3.1.2/" rel="next" title="Alibaba Arthas 3.1.2版本增加logger/heapdump/vmoption命令，增加tunnel server功能">
+                <i class="fa fa-chevron-left"></i> Alibaba Arthas 3.1.2版本增加logger/heapdump/vmoption命令，增加tunnel server功能
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/arthas-3.1.5/" rel="prev" title="Alibaba Arthas 3.1.5版本支持火焰图，快速定位应用热点">
+                Alibaba Arthas 3.1.5版本支持火焰图，快速定位应用热点 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#缘起"><span class="nav-number">1.</span> <span class="nav-text">缘起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#持续改进易用性"><span class="nav-number">2.</span> <span class="nav-text">持续改进易用性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#持续增加好用的命令"><span class="nav-number">3.</span> <span class="nav-text">持续增加好用的命令</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#jad-mc-redefine-一条龙热更新线上代码"><span class="nav-number">3.1.</span> <span class="nav-text">jad/mc/redefine 一条龙热更新线上代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#通过logger命令查看配置，修改level"><span class="nav-number">3.2.</span> <span class="nav-text">通过logger命令查看配置，修改level</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#从开源社区中获取力量，回报社区"><span class="nav-number">4.</span> <span class="nav-text">从开源社区中获取力量，回报社区</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#感谢67位Contributors"><span class="nav-number">4.1.</span> <span class="nav-text">感谢67位Contributors</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#洐生项目"><span class="nav-number">4.2.</span> <span class="nav-text">洐生项目</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#用户案例分享"><span class="nav-number">4.3.</span> <span class="nav-text">用户案例分享</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#回馈开源"><span class="nav-number">4.4.</span> <span class="nav-text">回馈开源</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#后记"><span class="nav-number">5.</span> <span class="nav-text">后记</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#公众号"><span class="nav-number">6.</span> <span class="nav-text">公众号</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

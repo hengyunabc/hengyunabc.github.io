@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言JSON（JavaScript Object Notation），可以说是事实的浏览器，服务器交换数据的标准了。目测其它的格式如XML，或者其它自定义的格式会越来越少。 为什么JSON这么流行？和JavaScript无缝对接是一个原因。 还有一个重要原因是可以比较轻松的实现跨域。如果是XML，或者其它专有格式，则很难实现跨域，要通过flash之类来实现。 任何一种数据格式，如何解析处理不当，都">
+<meta name="keywords" content="security,javascript,web,json">
+<meta property="og:type" content="article">
+<meta property="og:title" content="扯谈web安全之JSON">
+<meta property="og:url" content="http://hengyunabc.github.io/web-json-security/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言JSON（JavaScript Object Notation），可以说是事实的浏览器，服务器交换数据的标准了。目测其它的格式如XML，或者其它自定义的格式会越来越少。 为什么JSON这么流行？和JavaScript无缝对接是一个原因。 还有一个重要原因是可以比较轻松的实现跨域。如果是XML，或者其它专有格式，则很难实现跨域，要通过flash之类来实现。 任何一种数据格式，如何解析处理不当，都">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.255Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="扯谈web安全之JSON">
+<meta name="twitter:description" content="前言JSON（JavaScript Object Notation），可以说是事实的浏览器，服务器交换数据的标准了。目测其它的格式如XML，或者其它自定义的格式会越来越少。 为什么JSON这么流行？和JavaScript无缝对接是一个原因。 还有一个重要原因是可以比较轻松的实现跨域。如果是XML，或者其它专有格式，则很难实现跨域，要通过flash之类来实现。 任何一种数据格式，如何解析处理不当，都">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/web-json-security/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>扯谈web安全之JSON | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/web-json-security/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">扯谈web安全之JSON
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2014-05-29 16:58:28" itemprop="dateCreated datePublished" datetime="2014-05-29T16:58:28+00:00">2014-05-29</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p><a href="http://www.json.org/" target="_blank" rel="noopener">JSON</a>（JavaScript Object Notation），可以说是事实的浏览器，服务器交换数据的标准了。目测其它的格式如XML，或者其它自定义的格式会越来越少。</p>
+<p>为什么JSON这么流行？<br>和JavaScript无缝对接是一个原因。</p>
+<p>还有一个重要原因是可以比较轻松的实现跨域。如果是XML，或者其它专有格式，则很难实现跨域，要通过flash之类来实现。</p>
+<p>任何一种数据格式，如何解析处理不当，都会存在安全漏洞。下面扯谈下JSON相关的一些安全东东。<br>在介绍之前，先来提几个问题：</p>
+<ul>
+<li>为什么XMLHttpRequest要遵守同源策略？</li>
+<li>XMLHttpRequest 请求会不会带cookie?</li>
+<li><code>&lt;script scr=&quot;...&quot;&gt;</code> 的标签请求会不会带cookie？</li>
+<li>向一个其它域名的网站提交一个form，会不会带cookie？</li>
+<li>CORS请求能不能带cookie？</li>
+</ul>
+<h2 id="JSON注入"><a href="#JSON注入" class="headerlink" title="JSON注入"></a>JSON注入</h2><p>有的时候，可能是为了方便，有人会手动拼接下JSON，但是这种随手代码，却可能带来意想不到的安全隐患。</p>
+<h3 id="利用字符串拼接"><a href="#利用字符串拼接" class="headerlink" title="利用字符串拼接"></a>利用字符串拼接</h3><p>第一种方式，利用字符串拼接：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">String user = <span class="string">"test01"</span>;</span><br><span class="line">String password = <span class="string">"12345', admin:'true"</span>;</span><br><span class="line">String json = <span class="string">"&#123;user:'%s', password:'%s'&#125;"</span>;</span><br><span class="line">System.out.println(String.format(json, user, password));</span><br><span class="line"><span class="comment">//&#123;user:'test01', password:'12345', admin:'true'&#125;</span></span><br></pre></td></tr></table></figure>
+<p>用户增加了管理员权限。</p>
+<h3 id="利用Parameter-pollution，-类似http-parameter-pollution"><a href="#利用Parameter-pollution，-类似http-parameter-pollution" class="headerlink" title="利用Parameter pollution， 类似http parameter pollution"></a>利用Parameter pollution， 类似http parameter pollution</h3><p>第二种，利用Parameter pollution， 类似http parameter pollution</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">String string = <span class="string">"&#123;user:'test01',password:'hello', password:'world'&#125;"</span>;</span><br><span class="line">JSONObject parse = JSON.parseObject(string);</span><br><span class="line">String password = parse.getString(<span class="string">"password"</span>);</span><br><span class="line">System.out.println(password);</span><br><span class="line"><span class="comment">//world</span></span><br></pre></td></tr></table></figure>
+<p>当JSON数据key重复了会怎么处理？大部分JSON解析库都是后面的参数覆盖了前面的。</p>
+<p>下面的演示了修改别人密码的例子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//user%3Dtest01%26password%3D12345%27%2Cuser%3Dtest02"</span></span><br><span class="line"><span class="comment">//user=test01&amp;password=12345',user=test02</span></span><br><span class="line">HttpServletRequest request = <span class="keyword">null</span>;</span><br><span class="line">String user = request.getParameter(<span class="string">"user"</span>);</span><br><span class="line"><span class="comment">//检查test01是否登陆</span></span><br><span class="line">String password = request.getParameter(<span class="string">"password"</span>);</span><br><span class="line">String content = <span class="string">"&#123;user:'"</span> + user + <span class="string">"', password:'"</span> + password + <span class="string">"'&#125;"</span>;</span><br><span class="line"> </span><br><span class="line">User user = JSON.parseObject(content, User<span class="class">.<span class="keyword">class</span>)</span>;</span><br><span class="line"><span class="comment">//&#123;"password":"12345","user":"test02"&#125;</span></span><br><span class="line">updateDb(user);</span><br></pre></td></tr></table></figure>
+<p><strong>所以说，不要手动拼接JSON字符串</strong></p>
+<h2 id="浏览器端应该如何处理JSON数据？"><a href="#浏览器端应该如何处理JSON数据？" class="headerlink" title="浏览器端应该如何处理JSON数据？"></a>浏览器端应该如何处理JSON数据？</h2><p>像eval这种方式，自然是不能采用的。</p>
+<p>现在的浏览器都提供了原生的方法 JSON.parse(str) 来转换为JS对象。</p>
+<p>如果是IE8之前的浏览器，要使用这个库来解析：<a href="https://github.com/douglascrockford/JSON-js" target="_blank" rel="noopener">https://github.com/douglascrockford/JSON-js</a><br>参考：<a href="http://zh.wikipedia.org/wiki/JSON#.E5.AE.89.E5.85.A8.E6.80.A7.E5.95.8F.E9.A1.8C" target="_blank" rel="noopener">http://zh.wikipedia.org/wiki/JSON#.E5.AE.89.E5.85.A8.E6.80.A7.E5.95.8F.E9.A1.8C</a></p>
+<p>JQuery里内置了JSON解析库</p>
+<h2 id="JSONP-callback注入"><a href="#JSONP-callback注入" class="headerlink" title="JSONP callback注入"></a>JSONP callback注入</h2><h3 id="jsonp工作原理"><a href="#jsonp工作原理" class="headerlink" title="jsonp工作原理"></a>jsonp工作原理</h3><p>简单介绍jsonp的工作原理。</p>
+<p>用js在document上插入一个&lt;<code>script&gt;</code>标签，标签的src指向远程服务器的API地址。客户端和服务器约定一个回调函数的名字，然后服务器返回回调函数包裹着的数据，然后浏览器执行回调函数，取得数据。</p>
+<p>比如jquery是这样子实现的：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> url = <span class="string">'http://localhost:8080/testJsonp?callback=?'</span>;</span><br><span class="line">$.getJSON(url, <span class="function"><span class="keyword">function</span>(<span class="params">data</span>)</span>&#123;</span><br><span class="line">    alert(data)</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>jquery自动把?转成了一个带时间戳特别的函数（防止缓存）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://localhost:8080/testJsonp?callback=jQuery1102045087050669826567_1386230674292&amp;_=1386230674293</span><br></pre></td></tr></table></figure>
+<p>相当于插入了这么一个<code>&lt;script&gt;</code>标签：</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">"http://localhost:8080/testJsonp?callback=jQuery1102045087050669826567_1386230674292&amp;_=1386230674293"</span>&gt;</span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>服务器返回的数据是这样子的：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jQuery1102045087050669826567_1386230674292(&#123;'name':'abc', 'age':18&#125;)</span><br></pre></td></tr></table></figure>
+<p>浏览器会执行直接执行这个JS函数。</p>
+<p><strong>所以，如果在callback函数的名字上做点手脚，可以执行任意的JS代码。所以说callback名字一定要严格过滤。</strong></p>
+<p>当然，callback函数的名字通常是程序自己控制的，但是不能排除有其它被利用的可能。<br>那么callback函数的名字，如何过滤？应当只允许合法的JS函数命名，用正则来匹配应该是这样子的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">^[0-9a-zA-Z_.]+$</span><br></pre></td></tr></table></figure>
+<p>正则可能比较慢，可以写一个函数来判断：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">boolean</span> <span class="title">checkJSONPCallbackName</span><span class="params">(String name)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">try</span> &#123;</span><br><span class="line">		<span class="keyword">for</span> (<span class="keyword">byte</span> c : name.getBytes(<span class="string">"US-ASCII"</span>)) &#123;</span><br><span class="line">			<span class="keyword">if</span> ((c &gt;= <span class="string">'0'</span> &amp;&amp; c &lt;= <span class="string">'9'</span>) || (c &gt;= <span class="string">'a'</span> &amp;&amp; c &lt;= <span class="string">'z'</span>) || (c &gt;= <span class="string">'A'</span> &amp;&amp; c &lt;= <span class="string">'Z'</span>) || c == <span class="string">'_'</span>)</span><br><span class="line">			&#123;</span><br><span class="line">				<span class="keyword">continue</span>;</span><br><span class="line">			&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">				<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">	&#125; <span class="keyword">catch</span> (Throwable t) &#123;</span><br><span class="line">		<span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>实际上对callback函数名字进行严格检验还有其它的一个好处，就是防范了很多UTF-7编码攻击。</p>
+<p>因为UTF-7编码的头部都是带有特殊字符的，如”+/v8”，”+/v9”，这样就过滤掉非法编码的请求了。</p>
+<p>update: 2016-3-22 </p>
+<p>spring 4.1里有一个AbstractJsonpResponseBodyAdvice ，里面是用正则匹配来判断是否合法的jsonp函数名。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">abstract</span> <span class="class"><span class="keyword">class</span> <span class="title">AbstractJsonpResponseBodyAdvice</span> <span class="keyword">extends</span> <span class="title">AbstractMappingJacksonResponseBodyAdvice</span> </span>&#123;</span><br><span class="line"> </span><br><span class="line">	<span class="comment">/**</span></span><br><span class="line"><span class="comment">	 * Pattern for validating jsonp callback parameter values.</span></span><br><span class="line"><span class="comment">	 */</span></span><br><span class="line">	<span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Pattern CALLBACK_PARAM_PATTERN = Pattern.compile(<span class="string">"[0-9A-Za-z_\\.]*"</span>);</span><br></pre></td></tr></table></figure>
+<h2 id="jsonp的请求的验证"><a href="#jsonp的请求的验证" class="headerlink" title="jsonp的请求的验证"></a>jsonp的请求的验证</h2><p>jsonp在使用的时候，还有容易犯的错误是没有验证用户的身份。</p>
+<p><strong>第一，操作是否是用户自己提交的，而不是别的网页用<code>&lt;script&gt;</code>标签，或者用<code>&lt;form&gt;</code>提交的</strong></p>
+<p>所以要检查request的refer，或者验证token。这个实际是CSRF防护的范畴，但是很容易被忽略。</p>
+<p><strong>第二，要验证用户的权限。</strong></p>
+<p>很多时候，可能只是验证了用户是否登录 。却没有仔细判断用户是否有权限。</p>
+<p>比如通过JSONP请求修改了别的用户的数据。<br>所以说，一定要难证来源。判断refer，验证用户的身份。</p>
+<p>到乌云上搜索，可以找到不少类似的漏洞，都是因为没有严格验证用户的权限。<a href="http://www.wooyun.org/searchbug.php?q=jsonp" target="_blank" rel="noopener">http://www.wooyun.org/searchbug.php?q=jsonp</a></p>
+<h2 id="JSON-hijacking"><a href="#JSON-hijacking" class="headerlink" title="JSON hijacking"></a>JSON hijacking</h2><p>在JS里可以为对象定义一些setter函数，这样的话就存在了可以利用的漏洞。<br>比如在浏览器的JS Console里执行：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">window</span>.__defineSetter__(<span class="string">'x'</span>, <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">alert(<span class="string">'x is being assigned!'</span>);</span><br><span class="line">&#125;);</span><br><span class="line"><span class="built_in">window</span>.x=<span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+<p>会很神奇地弹出一个alert窗口，说明我们定义的setter函数起作用了。<br>结合这个，当利用<code>&lt;script&gt;</code>标签请求外部的一个JSON API时，如果返回的是数组型，就可以利用窃取数据。</p>
+<p>比如有这样的一个API：<br><a href="http://www.test.com/friends" target="_blank" rel="noopener">http://www.test.com/friends</a></p>
+<p>返回的数据是JSON Array：</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[&#123;'user':'test01','age':18&#125;,&#123;'user':'test02,'age':19&#125;,&#123;'user':'test03','age':20&#125;]</span><br></pre></td></tr></table></figure>
+<p>在攻击页面上插入以下的代码，就可以获取到用户的所有的朋友的信息。</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="javascript">  <span class="built_in">Object</span>.prototype.__defineSetter__(<span class="string">'user'</span>,<span class="function"><span class="keyword">function</span>(<span class="params">obj</span>)</span></span></span><br><span class="line">      &#123;alert(obj);</span><br><span class="line">    &#125;</span><br><span class="line">  );</span><br><span class="line"><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">script</span> <span class="attr">src</span>=<span class="string">"http://www.test.com/friends"</span>&gt;</span><span class="tag">&lt;/<span class="name">script</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p>这个漏洞在前几年很流行，比如qq邮箱的一个漏洞：<a href="http://www.wooyun.org/bugs/wooyun-2010-046" target="_blank" rel="noopener">http://www.wooyun.org/bugs/wooyun-2010-046</a></p>
+<p>现在的浏览器都已经修复了，可以下载一个Firefox3.0版本来测试下。目前的浏览器在解析JSON Array字符串的时候，不再去触发setter函数了。但对于object.xxx 这样的设置，还是会触发。</p>
+<h2 id="IE的utf-7编码解析问题"><a href="#IE的utf-7编码解析问题" class="headerlink" title="IE的utf-7编码解析问题"></a>IE的utf-7编码解析问题</h2><p>这个漏洞也曾经很流行。利用的是老版的IE可以解析utf-7编码的字符串或者文件，绕过服务器的过滤。举个乌云上的例子：<a href="http://www.wooyun.org/bugs/wooyun-2011-01293" target="_blank" rel="noopener">http://www.wooyun.org/bugs/wooyun-2011-01293</a><br>有这样的一个jsonp调用接口：</p>
+<p><a href="http://jipiao.taobao.com/hotel/remote/livesearch.do?callback=%2B%2Fv8%20%2BADwAaAB0AG0APgA8AGIAbwBkAHkAPgA8AHMAYwByAGkAcAB0AD4AYQBsAGUAcgB0ACgAMQApADsAPAAvAHMAYwByAGkAcAB0AD4APAAvAGIAbwBkAHkAPgA8AC8AaAB0AG0APg" target="_blank" rel="noopener">http://jipiao.taobao.com/hotel/remote/livesearch.do?callback=%2B%2Fv8%20%2BADwAaAB0AG0APgA8AGIAbwBkAHkAPgA8AHMAYwByAGkAcAB0AD4AYQBsAGUAcgB0ACgAMQApADsAPAAvAHMAYwByAGkAcAB0AD4APAAvAGIAbwBkAHkAPgA8AC8AaAB0AG0APg</a></p>
+<p>url decoder之后是：</p>
+<p><a href="http://jipiao.taobao.com/hotel/remote/livesearch.do?callback=+/v8" target="_blank" rel="noopener">http://jipiao.taobao.com/hotel/remote/livesearch.do?callback=+/v8</a> +ADwAaAB0AG0APgA8AGIAbwBkAHkAPgA8AHMAYwByAGkAcAB0AD4AYQBsAGUAcgB0ACgAMQApADsAPAAvAHMAYwByAGkAcAB0AD4APAAvAGIAbwBkAHkAPgA8AC8AaAB0AG0APg</p>
+<p>因为jsonp调用是直接返回callback包装的数据，所以实际上，上面的请求直接返回的是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">+/v8 +ADwAaAB0AG0APgA8AGIAbwBkAHkAPgA8AHMAYwByAGkAcAB0AD4AYQBsAGUAcgB0ACgAMQApADsAPAAvAHMAYwByAGkAcAB0AD4APAAvAGIAbwBkAHkAPgA8AC8AaAB0AG0APg-(调用结果数据)</span><br></pre></td></tr></table></figure>
+<p>IE做了UTF-7解码之后数据是这样子的：</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">htm</span>&gt;</span><span class="tag">&lt;<span class="name">body</span>&gt;</span><span class="tag">&lt;<span class="name">script</span>&gt;</span>alert(1);<span class="tag">&lt;/<span class="name">script</span>&gt;</span><span class="tag">&lt;/<span class="name">body</span>&gt;</span><span class="tag">&lt;/<span class="name">htm</span>&gt;</span>(调用结果数据)</span><br></pre></td></tr></table></figure>
+<p>于是，就执行了XSS。<br>另外用IFrame也是可以的。但是我在IE8上测试，url的后缀需要是html才会触发。<br>IE把没有声明返回Content-Type的请求当做了”text/html”类型的，然后解析就有问题了。</p>
+<p><strong>只要服务器端显式设置了Content-Type为”application/json”，则IE不会识别编码，就不会触发漏洞。所以说服务器端的Content-Type一定要设置对。</strong>尽管设置之后调试有点麻烦，但是却大大提高了安全性。</p>
+<ul>
+<li>JSON格式设置为：”application/json”</li>
+<li>JavaScript设置为：”application/x-javascript”</li>
+<li>JavaScript还有一些设置为：”text/javascript”等，都是不规范的。</li>
+</ul>
+<h2 id="其它的一些东东"><a href="#其它的一些东东" class="headerlink" title="其它的一些东东"></a>其它的一些东东</h2><h3 id="MongoDB注入"><a href="#MongoDB注入" class="headerlink" title="MongoDB注入"></a>MongoDB注入</h3><p>这个实际上就是JSON注入，简单的字符串拼接，可能会引发各种数据被修改的问题。</p>
+<h3 id="JSON解析库的问题"><a href="#JSON解析库的问题" class="headerlink" title="JSON解析库的问题"></a>JSON解析库的问题</h3><p>有些JSON库解析库支持循环引用，那么是否可以构造特别的数据，导致其解析失败？从而引起CPU使用过高，拒绝服务等问题？</p>
+<p>FastJSON的一个StackOverflowError Bug：</p>
+<p><a href="https://github.com/alibaba/fastjson/issues/76" target="_blank" rel="noopener">https://github.com/alibaba/fastjson/issues/76</a></p>
+<p>有些JSON库解析有问题：</p>
+<p><a href="http://www.freebuf.com/articles/web/10672.html" target="_blank" rel="noopener">http://www.freebuf.com/articles/web/10672.html</a></p>
+<h3 id="JSON-P"><a href="#JSON-P" class="headerlink" title="JSON-P"></a>JSON-P</h3><p>有人提出一个JSON-P的规范，但是貌似目前都没有浏览器有支持这个的。<br>原理是对于JSONP请求，浏览器可以要求服务器返回的MIME是”application/json-p”，这样可以严格校验是否合法的JSON数据。</p>
+<h3 id="CORS（Cross-Origin-Resource-Sharing）"><a href="#CORS（Cross-Origin-Resource-Sharing）" class="headerlink" title="CORS（Cross-Origin Resource Sharing）"></a>CORS（Cross-Origin Resource Sharing）</h3><p>为了解决跨域调用的安全性问题，目前实际上可用的方案是CORS：</p>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS" target="_blank" rel="noopener">https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS</a><br><a href="http://www.w3.org/TR/cors/" target="_blank" rel="noopener">http://www.w3.org/TR/cors/</a></p>
+<p>原理是通过服务器端设置允许跨域调用，然后浏览器就允许XMLHttpRequest跨域调用了。</p>
+<p>CORS可以发起GET/POST请求，不像JSONP，只能发起GET请求。</p>
+<p><strong>默认情况下，CORS请求是不带cookie的。</strong></p>
+<p>我个人认为，这个方案也很蛋疼，一是需要服务器配置，二是协议复杂。浏览器如果不能确定是否能够跨域调用，还要先进行一个Preflight Request。。</p>
+<p><strong>实际上，即使服务器不允许CORS，XMLHttpRequest请求实际上是发送出去，并且返回数据的了，只是浏览器没有让JS环境拿到而已。</strong></p>
+<p>另外，我认为有另外一种数据泄露的可能：黑客可能控制了某个路由，他不能随意抓包，但是他可以在回应头里插入一些特别的头部，比如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Access-Control-Allow-Credentials: true</span><br></pre></td></tr></table></figure>
+<p>那么，这时XMLHttpRequest请求就是带cookie的了。</p>
+<h2 id="最初的问题"><a href="#最初的问题" class="headerlink" title="最初的问题"></a>最初的问题</h2><p>回到最初的问题：</p>
+<ul>
+<li><p>为什么XMLHttpRequest要遵守同源策略？</p>
+<p>  即使XMLHttpRequest是不带Cookie的，也是有可能造成数据泄露的。比如内部网站是根据IP限制访问的，如果XMLHttpRequest不遵守同源策略，那么攻击者可以在用户浏览网页的时候，发起请求，取得内部网站数据。</p>
+</li>
+<li><p>XMLHttpRequest 请求会不会带cookie?</p>
+<p>  同域情况下会，不同域情况下不会。如果服务器设置Access-Control-Allow-Credentials: true ，也是可以跨域带Cookie的。</p>
+</li>
+<li><p><code>&lt;script scr=&quot;...&quot;&gt;</code> 的标签请求会不会带cookie？</p>
+<p>  会。</p>
+</li>
+<li><p>向一个其它域名的网站提交一个form，会不会带cookie？</p>
+<p>  会。</p>
+</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>禁止手动拼接JSON字符串，一律应当用JSON库输出。也不应使用自己实现的ObjectToJson等方法，因为可能有各种没有考虑到的地方。</li>
+<li>jsonp请求的callback要严格过滤，只允许”_”，0到9，a-z, A-Z，即合法的javascript函数的命名。</li>
+<li>jsonp请求也要判断合法性，比如用户是否登陆（这点很容易被忽略）。</li>
+<li>设置好Content-Type（这点对于调试不方便，但是提高了安全性）。</li>
+<li>以jsonp方式调用第三方的接口，实际相当于引入了第三方的JS代码，要慎重。</li>
+</ul>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="http://www.json.org/" target="_blank" rel="noopener">http://www.json.org/</a></li>
+<li><a href="http://www.slideshare.net/wurbanski/nosql-no-security" target="_blank" rel="noopener">http://www.slideshare.net/wurbanski/nosql-no-security</a></li>
+<li><a href="https://github.com/douglascrockford/JSON-js" target="_blank" rel="noopener">https://github.com/douglascrockford/JSON-js</a></li>
+<li><a href="http://toolswebtop.com/" target="_blank" rel="noopener">http://toolswebtop.com/</a>      在线编码转换，可以转换UTF-7    </li>
+<li><a href="http://www.thespanner.co.uk/2011/05/30/json-hijacking/" target="_blank" rel="noopener">http://www.thespanner.co.uk/2011/05/30/json-hijacking/</a></li>
+<li><a href="http://www.thespanner.co.uk/2009/11/23/bypassing-csp-for-fun-no-profit/" target="_blank" rel="noopener">http://www.thespanner.co.uk/2009/11/23/bypassing-csp-for-fun-no-profit/</a></li>
+<li><a href="http://stackoverflow.com/questions/1830050/why-same-origin-policy-for-xmlhttprequest" target="_blank" rel="noopener">http://stackoverflow.com/questions/1830050/why-same-origin-policy-for-xmlhttprequest</a></li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/security/" rel="tag"># security</a>
+          
+            <a href="/tags/javascript/" rel="tag"># javascript</a>
+          
+            <a href="/tags/web/" rel="tag"># web</a>
+          
+            <a href="/tags/json/" rel="tag"># json</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/jvm-hsdis-jitwatch/" rel="next" title="利用hsdis和JITWatch查看分析HotSpot JIT compiler生成的汇编代码">
+                <i class="fa fa-chevron-left"></i> 利用hsdis和JITWatch查看分析HotSpot JIT compiler生成的汇编代码
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/cpp11-once_flag-call_once/" rel="prev" title="C++11中once_flag，call_once实现分析">
+                C++11中once_flag，call_once实现分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JSON注入"><span class="nav-number">2.</span> <span class="nav-text">JSON注入</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#利用字符串拼接"><span class="nav-number">2.1.</span> <span class="nav-text">利用字符串拼接</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#利用Parameter-pollution，-类似http-parameter-pollution"><span class="nav-number">2.2.</span> <span class="nav-text">利用Parameter pollution， 类似http parameter pollution</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#浏览器端应该如何处理JSON数据？"><span class="nav-number">3.</span> <span class="nav-text">浏览器端应该如何处理JSON数据？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JSONP-callback注入"><span class="nav-number">4.</span> <span class="nav-text">JSONP callback注入</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#jsonp工作原理"><span class="nav-number">4.1.</span> <span class="nav-text">jsonp工作原理</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#jsonp的请求的验证"><span class="nav-number">5.</span> <span class="nav-text">jsonp的请求的验证</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JSON-hijacking"><span class="nav-number">6.</span> <span class="nav-text">JSON hijacking</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IE的utf-7编码解析问题"><span class="nav-number">7.</span> <span class="nav-text">IE的utf-7编码解析问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其它的一些东东"><span class="nav-number">8.</span> <span class="nav-text">其它的一些东东</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#MongoDB注入"><span class="nav-number">8.1.</span> <span class="nav-text">MongoDB注入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#JSON解析库的问题"><span class="nav-number">8.2.</span> <span class="nav-text">JSON解析库的问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#JSON-P"><span class="nav-number">8.3.</span> <span class="nav-text">JSON-P</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CORS（Cross-Origin-Resource-Sharing）"><span class="nav-number">8.4.</span> <span class="nav-text">CORS（Cross-Origin Resource Sharing）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#最初的问题"><span class="nav-number">9.</span> <span class="nav-text">最初的问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">10.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">11.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

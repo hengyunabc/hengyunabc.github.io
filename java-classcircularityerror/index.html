@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="先打一个广告。 greys是一个很不错的java诊断工具：https://github.com/oldmanpushcart/greys-anatomy  最近尝试用greys来实时统计jvm里的异常生成数量，在增强Throwable时，发现应用会抛出StackOverflowError。下面记录详细的分析过程。 在真正分析之前，先介绍JVM对反射方法调用的优化和greys的工作原理。 JVM对反">
+<meta name="keywords" content="java,jvm">
+<meta property="og:type" content="article">
+<meta property="og:title" content="详细分析罕见的ClassCircularityError异常导致的StackOverflowError">
+<meta property="og:url" content="http://hengyunabc.github.io/java-classcircularityerror/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="先打一个广告。 greys是一个很不错的java诊断工具：https://github.com/oldmanpushcart/greys-anatomy  最近尝试用greys来实时统计jvm里的异常生成数量，在增强Throwable时，发现应用会抛出StackOverflowError。下面记录详细的分析过程。 在真正分析之前，先介绍JVM对反射方法调用的优化和greys的工作原理。 JVM对反">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="详细分析罕见的ClassCircularityError异常导致的StackOverflowError">
+<meta name="twitter:description" content="先打一个广告。 greys是一个很不错的java诊断工具：https://github.com/oldmanpushcart/greys-anatomy  最近尝试用greys来实时统计jvm里的异常生成数量，在增强Throwable时，发现应用会抛出StackOverflowError。下面记录详细的分析过程。 在真正分析之前，先介绍JVM对反射方法调用的优化和greys的工作原理。 JVM对反">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/java-classcircularityerror/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>详细分析罕见的ClassCircularityError异常导致的StackOverflowError | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/java-classcircularityerror/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">详细分析罕见的ClassCircularityError异常导致的StackOverflowError
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2016-04-10 21:58:28" itemprop="dateCreated datePublished" datetime="2016-04-10T21:58:28+00:00">2016-04-10</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>先打一个广告。</p>
+<p>greys是一个很不错的java诊断工具：<a href="https://github.com/oldmanpushcart/greys-anatomy" target="_blank" rel="noopener">https://github.com/oldmanpushcart/greys-anatomy</a></p>
+<hr>
+<p>最近尝试用greys来实时统计jvm里的异常生成数量，在增强Throwable时，发现应用会抛出StackOverflowError。下面记录详细的分析过程。</p>
+<p>在真正分析之前，先介绍<code>JVM对反射方法调用的优化</code>和<code>greys的工作原理</code>。</p>
+<h2 id="JVM对反射方法调用的优化"><a href="#JVM对反射方法调用的优化" class="headerlink" title="JVM对反射方法调用的优化"></a>JVM对反射方法调用的优化</h2><p>在JVM里对于反射方法调用<code>Method.invoke</code>，默认情况下，是通过NativeMethodAccessorImpl来调用到的。</p>
+<p>调用栈如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">NativeMethodAccessorImpl.invoke0(Method, Object, Object[]) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">NativeMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">62</span>	</span><br><span class="line">DelegatingMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">43</span>	</span><br><span class="line">Method.invoke(Object, Object...) line: <span class="number">497</span></span><br></pre></td></tr></table></figure>
+<p>当经过16次方法调用之后，NativeMethodAccessorImpl 会用MethodAccessorGenerator 动态生成一个MethodAccessorImpl（即下面的GeneratedMethodAccessor1） ，然后再设置到 DelegatingMethodAccessorImpl 里。然后调用栈就变成这个样子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">GeneratedMethodAccessor1.invoke(Object, Object[]) line: not available	</span><br><span class="line">DelegatingMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">43</span>	</span><br><span class="line">Method.invoke(Object, Object...) line: <span class="number">497</span></span><br></pre></td></tr></table></figure>
+<p>这个动态生成的GeneratedMethodAccessor1是如何加载到ClassLoader里的？实际上是通过 <code>Unsafe.defineClass</code> 来define，然后再调用 <code>ClassLoader.loadClass(String)</code> 来加载到的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">AgentLauncher$<span class="number">1</span>(ClassLoader).loadClass(String) line: <span class="number">357</span>	</span><br><span class="line">Unsafe.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader, ProtectionDomain) line: not available [<span class="keyword">native</span> method] </span><br><span class="line">ClassDefiner.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader) line: <span class="number">63</span></span><br></pre></td></tr></table></figure>
+<p>更多反射调用优化的细节参考：<a href="http://rednaxelafx.iteye.com/blog/548536" target="_blank" rel="noopener">http://rednaxelafx.iteye.com/blog/548536</a></p>
+<p>简单总结下：</p>
+<ul>
+<li>jvm会对method反射调用优化</li>
+<li>运行时动态生成反射调用代码，再define到classloader里</li>
+<li>define到classloader时，会调用<code>ClassLoader.loadClass(String)</code></li>
+</ul>
+<h2 id="greys的工作原理"><a href="#greys的工作原理" class="headerlink" title="greys的工作原理"></a>greys的工作原理</h2><p>使用greys可以在运行时，对方法调用进行一些watch, monitor等的动作。那么这个是怎么实现的呢？</p>
+<p>简单来说，是通过运行时修改字节码来实现的。比如下面这个函数：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">xxx</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> String <span class="title">abc</span><span class="params">(Student s)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> s.getName();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>被greys修改过后，变为</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Spy.ON_BEFORE_METHOD.invoke(<span class="keyword">null</span>, <span class="keyword">new</span> Integer(<span class="number">0</span>), xxx2.getClass().getClassLoader(), <span class="string">"xxx"</span>, <span class="string">"abc"</span>, <span class="string">"(LStudent;)Ljava/lang/String;"</span>, xxx2, &#123;student&#125;);</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> s;</span><br><span class="line">    String string = s.getName();</span><br><span class="line">    Spy.ON_RETURN_METHOD.invoke(<span class="keyword">null</span>, string);</span><br><span class="line">    <span class="keyword">return</span> string;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">catch</span> (Throwable v1) &#123;</span><br><span class="line">    Spy.ON_THROWS_METHOD.invoke(<span class="keyword">null</span>, v1);</span><br><span class="line">    <span class="keyword">throw</span> v1;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，greys在原来的method里插入很多钩子，所以greys可以获取到method被调用的参数，返回值等信息。</p>
+<h2 id="当使用greys对java-lang-Throwable来增强时，会抛出StackOverflowError"><a href="#当使用greys对java-lang-Throwable来增强时，会抛出StackOverflowError" class="headerlink" title="当使用greys对java.lang.Throwable来增强时，会抛出StackOverflowError"></a>当使用greys对java.lang.Throwable来增强时，会抛出StackOverflowError</h2><p>测试代码：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">public class ExceptionTest &#123;</span><br><span class="line">	public static void main(String[] args) throws Exception &#123;</span><br><span class="line">		for (int i = 0; i &lt; 100000; i++) &#123;</span><br><span class="line">			RuntimeException exception = new RuntimeException(&quot;&quot;);</span><br><span class="line">			System.err.println(exception);</span><br><span class="line"></span><br><span class="line">			Thread.sleep(1000);</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>在命令行里attach到测试代码进程之后，在greys console里执行</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">options unsafe <span class="literal">true</span></span><br><span class="line">monitor -c 1 java.lang.Throwable *</span><br></pre></td></tr></table></figure>
+<p>当用greys增强java.lang.Throwable之后，经过16秒之后，就会抛出StackOverflowError。</p>
+<p>具体的异常栈很长，这里只贴出重点部分：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">Thread [main] (Suspended (exception StackOverflowError))	</span><br><span class="line">	ClassLoader.checkCreateClassLoader() line: <span class="number">272</span>	</span><br><span class="line">...</span><br><span class="line">	ClassCircularityError(Throwable).&lt;init&gt;(String) line: <span class="number">264</span>	</span><br><span class="line">	ClassCircularityError(Error).&lt;init&gt;(String) line: <span class="number">70</span>	</span><br><span class="line">	ClassCircularityError(LinkageError).&lt;init&gt;(String) line: <span class="number">55</span>	</span><br><span class="line">	ClassCircularityError.&lt;init&gt;(String) line: <span class="number">53</span>	</span><br><span class="line">	Unsafe.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader, ProtectionDomain) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">	ClassDefiner.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader) line: <span class="number">63</span>	</span><br><span class="line">	MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">399</span>	</span><br><span class="line">	MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">394</span>	</span><br><span class="line">	AccessController.doPrivileged(PrivilegedAction&lt;T&gt;) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">	MethodAccessorGenerator.generate(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>, <span class="keyword">boolean</span>, <span class="keyword">boolean</span>, Class&lt;?&gt;) line: <span class="number">393</span>	</span><br><span class="line">	MethodAccessorGenerator.generateMethod(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>) line: <span class="number">75</span>	</span><br><span class="line">	NativeMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">53</span>	</span><br><span class="line">	DelegatingMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">43</span>	</span><br><span class="line">	Method.invoke(Object, Object...) line: <span class="number">497</span>	</span><br><span class="line">	ClassCircularityError(Throwable).&lt;init&gt;(String) line: <span class="number">264</span>	</span><br><span class="line">	ClassCircularityError(Error).&lt;init&gt;(String) line: <span class="number">70</span>	</span><br><span class="line">	ClassCircularityError(LinkageError).&lt;init&gt;(String) line: <span class="number">55</span>	</span><br><span class="line">	ClassCircularityError.&lt;init&gt;(String) line: <span class="number">53</span>	</span><br><span class="line">	Unsafe.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader, ProtectionDomain) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">	ClassDefiner.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader) line: <span class="number">63</span>	</span><br><span class="line">	MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">399</span>	</span><br><span class="line">	MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">394</span>	</span><br><span class="line">	AccessController.doPrivileged(PrivilegedAction&lt;T&gt;) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">	MethodAccessorGenerator.generate(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>, <span class="keyword">boolean</span>, <span class="keyword">boolean</span>, Class&lt;?&gt;) line: <span class="number">393</span>	</span><br><span class="line">	MethodAccessorGenerator.generateMethod(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>) line: <span class="number">75</span>	</span><br><span class="line">	NativeMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">53</span>	</span><br><span class="line">	DelegatingMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">43</span>	</span><br><span class="line">	Method.invoke(Object, Object...) line: <span class="number">497</span>	</span><br><span class="line">	ClassNotFoundException(Throwable).&lt;init&gt;(String, Throwable) line: <span class="number">286</span>	</span><br><span class="line">	ClassNotFoundException(Exception).&lt;init&gt;(String, Throwable) line: <span class="number">84</span>	</span><br><span class="line">	ClassNotFoundException(ReflectiveOperationException).&lt;init&gt;(String, Throwable) line: <span class="number">75</span>	</span><br><span class="line">	ClassNotFoundException.&lt;init&gt;(String) line: <span class="number">82</span>	</span><br><span class="line">	AgentLauncher$<span class="number">1</span>(URLClassLoader).findClass(String) line: <span class="number">381</span>	</span><br><span class="line">	AgentLauncher$<span class="number">1</span>.loadClass(String, <span class="keyword">boolean</span>) line: <span class="number">55</span>	</span><br><span class="line">	AgentLauncher$<span class="number">1</span>(ClassLoader).loadClass(String) line: <span class="number">357</span>	</span><br><span class="line">	Unsafe.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader, ProtectionDomain) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">	ClassDefiner.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader) line: <span class="number">63</span>	</span><br><span class="line">	MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">399</span>	</span><br><span class="line">	MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">394</span>	</span><br><span class="line">	AccessController.doPrivileged(PrivilegedAction&lt;T&gt;) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">	MethodAccessorGenerator.generate(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>, <span class="keyword">boolean</span>, <span class="keyword">boolean</span>, Class&lt;?&gt;) line: <span class="number">393</span>	</span><br><span class="line">	MethodAccessorGenerator.generateMethod(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>) line: <span class="number">75</span>	</span><br><span class="line">	NativeMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">53</span>	</span><br><span class="line">	DelegatingMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">43</span>	</span><br><span class="line">	Method.invoke(Object, Object...) line: <span class="number">497</span>	</span><br><span class="line">	RuntimeException(Throwable).&lt;init&gt;(String) line: <span class="number">264</span>	</span><br><span class="line">	RuntimeException(Exception).&lt;init&gt;(String) line: <span class="number">66</span>	</span><br><span class="line">	RuntimeException.&lt;init&gt;(String) line: <span class="number">62</span>	</span><br><span class="line">	ExceptionTest.main(String[]) line: <span class="number">15</span></span><br></pre></td></tr></table></figure>
+<p>从异常栈可以看出，先出现了一个ClassNotFoundException，然后大量的ClassCircularityError，最终导致StackOverflowError。</p>
+<p>下面具体分析原因。</p>
+<h2 id="被增强过后的Throwable的代码"><a href="#被增强过后的Throwable的代码" class="headerlink" title="被增强过后的Throwable的代码"></a>被增强过后的Throwable的代码</h2><p>当<code>monitor -c 1 java.lang.Throwable *</code>命令执行之后，Throwable的代码实际上变为这个样子：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Throwable</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">Throwable</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        Spy.ON_BEFORE_METHOD.invoke(...);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// Throwable &lt;init&gt;</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">catch</span> (Throwable v1) &#123;</span><br><span class="line">            Spy.ON_THROWS_METHOD.invoke(<span class="keyword">null</span>, v1);</span><br><span class="line">            <span class="keyword">throw</span> v1;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个<code>Spy.ON_BEFORE_METHOD.invoke</code> 是一个反射调用，那么当它被调用16次之后，jvm会生成优化的代码。从最开始的异常栈可以看到这些信息：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">Unsafe.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader, ProtectionDomain) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">ClassDefiner.defineClass(String, <span class="keyword">byte</span>[], <span class="keyword">int</span>, <span class="keyword">int</span>, ClassLoader) line: <span class="number">63</span>	</span><br><span class="line">MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">399</span>	</span><br><span class="line">MethodAccessorGenerator$<span class="number">1</span>.run() line: <span class="number">394</span>	</span><br><span class="line">AccessController.doPrivileged(PrivilegedAction&lt;T&gt;) line: not available [<span class="keyword">native</span> method]	</span><br><span class="line">MethodAccessorGenerator.generate(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>, <span class="keyword">boolean</span>, <span class="keyword">boolean</span>, Class&lt;?&gt;) line: <span class="number">393</span>	</span><br><span class="line">MethodAccessorGenerator.generateMethod(Class&lt;?&gt;, String, Class&lt;?&gt;[], Class&lt;?&gt;, Class&lt;?&gt;[], <span class="keyword">int</span>) line: <span class="number">75</span>	</span><br><span class="line">NativeMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">53</span>	</span><br><span class="line">DelegatingMethodAccessorImpl.invoke(Object, Object[]) line: <span class="number">43</span>	</span><br><span class="line">Method.invoke(Object, Object...) line: <span class="number">497</span>	</span><br><span class="line">RuntimeException(Throwable).&lt;init&gt;(String) line: <span class="number">264</span>	</span><br><span class="line">RuntimeException(Exception).&lt;init&gt;(String) line: <span class="number">66</span>	</span><br><span class="line">RuntimeException.&lt;init&gt;(String) line: <span class="number">62</span>	</span><br><span class="line">ExceptionTest.main(String[]) line: <span class="number">15</span></span><br></pre></td></tr></table></figure>
+<p>这时，生成的反射调用优化类名字是<code>sun/reflect/GeneratedMethodAccessor1</code>。</p>
+<h2 id="ClassNotFoundException-怎么产生的"><a href="#ClassNotFoundException-怎么产生的" class="headerlink" title="ClassNotFoundException 怎么产生的"></a>ClassNotFoundException 怎么产生的</h2><p>接着，代码抛出了一个ClassNotFoundException，这个ClassNotFoundException来自<code>AgentLauncher$1(URLClassLoader)</code>。这是AgentLauncher 里自定义的一个URLClassLoader。</p>
+<p>这个自定义ClassLoader的逻辑很简单，优先从自己查找class，如果找不到则从parent里查找。这是一个常见的重写ClassLoader的逻辑。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">classLoader = <span class="keyword">new</span> URLClassLoader(<span class="keyword">new</span> URL[]&#123;<span class="keyword">new</span> URL(<span class="string">"file:"</span> + agentJar)&#125;) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">synchronized</span> Class&lt;?&gt; loadClass(String name, <span class="keyword">boolean</span> resolve) <span class="keyword">throws</span> ClassNotFoundException &#123;</span><br><span class="line">        <span class="keyword">final</span> Class&lt;?&gt; loadedClass = findLoadedClass(name);</span><br><span class="line">        <span class="keyword">if</span> (loadedClass != <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> loadedClass;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Class&lt;?&gt; aClass = findClass(name);</span><br><span class="line">            <span class="keyword">if</span> (resolve) &#123;</span><br><span class="line">                resolveClass(aClass);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> aClass;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">super</span>.loadClass(name, resolve);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>这个ClassNotFoundException的具体信息是<code>sun.reflect.MethodAccessorImpl</code>。实际上是MethodAccessorGenerator在生成反射调用代码里要用到的，所以需要加载到ClassLoader里。因此自定义的URLClassLoader在findClass时抛出了一个ClassNotFoundException。</p>
+<h2 id="ClassCircularityError是怎么产生的"><a href="#ClassCircularityError是怎么产生的" class="headerlink" title="ClassCircularityError是怎么产生的"></a>ClassCircularityError是怎么产生的</h2><p>抛出的ClassNotFoundException是Throwable的一个子类，所以也会调用Throwable的构造函数，然后需要调用到<code>Spy.ON_BEFORE_METHOD.invoke</code> 。</p>
+<p>注意，这时<code>Spy.ON_BEFORE_METHOD.invoke</code>的反射调用代码已经生成了，但是还没有置入到ClassLoader里，也没有放到DelegatingMethodAccessorImpl里。所以这时仍然调用的是NativeMethodAccessorImpl，然后再次生成反射调用类，name是<code>sun/reflect/GeneratedMethodAccessor2</code>。</p>
+<p>生成<code>GeneratedMethodAccessor2</code>之后， 会调用<code>Unsafe.define</code>来define这个class。这里抛出了ClassCircularityError。</p>
+<h2 id="为什么会抛出ClassCircularityError"><a href="#为什么会抛出ClassCircularityError" class="headerlink" title="为什么会抛出ClassCircularityError"></a>为什么会抛出ClassCircularityError</h2><p>因为<code>Unsafe.defineClass</code> 是native实现，所以需要查看hotspot源码才能知道具体的细节。</p>
+<p>SystemDictionary是jvm里加载的所有类的总管，所以在defineClass，会调用到这个函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// systemDictionary.cpp</span></span><br><span class="line"><span class="function">Klass* <span class="title">SystemDictionary::resolve_instance_class_or_null</span><span class="params">(Symbol* name,</span></span></span><br><span class="line"><span class="function"><span class="params">                                                        Handle class_loader,</span></span></span><br><span class="line"><span class="function"><span class="params">                                                        Handle protection_domain,</span></span></span><br><span class="line"><span class="function"><span class="params">                                                        TRAPS)</span> </span>&#123;</span><br></pre></td></tr></table></figure>
+<p>然后，在这里面会有一个判断循环的方法。防止循环依赖。如果是发现了循环，则会抛出ClassCircularityError。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// systemDictionary.cpp</span></span><br><span class="line">          <span class="comment">// only need check_seen_thread once, not on each loop</span></span><br><span class="line">          <span class="comment">// 6341374 java/lang/Instrument with -Xcomp</span></span><br><span class="line">          <span class="keyword">if</span> (oldprobe-&gt;check_seen_thread(THREAD, PlaceholderTable::LOAD_INSTANCE)) &#123;</span><br><span class="line">            throw_circularity_error = <span class="literal">true</span>;</span><br><span class="line">          &#125;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (throw_circularity_error) &#123;</span><br><span class="line">      <span class="function">ResourceMark <span class="title">rm</span><span class="params">(THREAD)</span></span>;</span><br><span class="line">      THROW_MSG_NULL(vmSymbols::java_lang_ClassCircularityError(), child_name-&gt;as_C_string());</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>这个循环检测是怎么工作的呢？</p>
+<p>实际上是把线程放到一个queue里，然后判断这个queue里的保存的前一个线程是不是一样的，如果是一样的，则会认为出现循环了。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// placeholders.cpp</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">check_seen_thread</span><span class="params">(Thread* thread, PlaceholderTable::classloadAction action)</span> </span>&#123;</span><br><span class="line">    assert_lock_strong(SystemDictionary_lock);</span><br><span class="line">    SeenThread* threadQ = actionToQueue(action);</span><br><span class="line">    SeenThread* seen = threadQ;</span><br><span class="line">    <span class="keyword">while</span> (seen) &#123;</span><br><span class="line">      <span class="keyword">if</span> (thread == seen-&gt;thread()) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      seen = seen-&gt;next();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">SeenThread* <span class="title">actionToQueue</span><span class="params">(PlaceholderTable::classloadAction action)</span> </span>&#123;</span><br><span class="line">    SeenThread* queuehead;</span><br><span class="line">    <span class="keyword">switch</span> (action) &#123;</span><br><span class="line">      <span class="keyword">case</span> PlaceholderTable::LOAD_INSTANCE:</span><br><span class="line">         queuehead = _loadInstanceThreadQ;</span><br><span class="line">         <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> PlaceholderTable::LOAD_SUPER:</span><br><span class="line">         queuehead = _superThreadQ;</span><br><span class="line">         <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">case</span> PlaceholderTable::DEFINE_CLASS:</span><br><span class="line">         queuehead = _defineThreadQ;</span><br><span class="line">         <span class="keyword">break</span>;</span><br><span class="line">      <span class="keyword">default</span>: Unimplemented();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> queuehead;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>就这个例子实际情况来说，就是同一个thread里，在defineClass时，再次defineClass，这样子就出现了循环。所以抛出了一个ClassCircularityError。</p>
+<h2 id="StackOverflowError怎么产生的"><a href="#StackOverflowError怎么产生的" class="headerlink" title="StackOverflowError怎么产生的"></a>StackOverflowError怎么产生的</h2><p>OK，搞明白ClassCircularityError这个异常是怎么产生的之后，回到原来的流程看下。</p>
+<p>这个ClassCircularityError也是Throwable的一个子类，那么它也需要初始化，然后调用<code>Spy.ON_BEFORE_METHOD.invoke</code> ……</p>
+<p>然后，接下来就生成一个<code>sun/reflect/GeneratedMethodAccessor3</code> ，然后会被defindClass，然后就会检测到循环，然后再次抛出ClassCircularityError。 </p>
+<p>就这样子，最终一直到StackOverflowError</p>
+<h2 id="完整的异常产生流程"><a href="#完整的异常产生流程" class="headerlink" title="完整的异常产生流程"></a>完整的异常产生流程</h2><ul>
+<li>Throwable的构造函数被增强之后，需要调用<code>Spy.ON_BEFORE_METHOD.invoke</code></li>
+<li><code>Spy.ON_BEFORE_METHOD.invoke</code>经过16次调用之后，jvm会生成反射调用优化代码</li>
+<li>反射调用优化类<code>sun/reflect/GeneratedMethodAccessor1</code>需要被自定义的ClassLoader加载</li>
+<li>自定义的ClassLoader重写了loadClass函数，抛出了一个ClassNotFoundException</li>
+<li>ClassNotFoundException在构造时，调用了Throwable的构造函数，然后调用了<code>Spy.ON_BEFORE_METHOD.invoke</code></li>
+<li><code>Spy.ON_BEFORE_METHOD.invoke</code> 生成反射调用优化代码：<code>sun/reflect/GeneratedMethodAccessor2</code></li>
+<li>Unsafe在defineClass <code>sun/reflect/GeneratedMethodAccessor2</code> 时，检测到循环，抛出了ClassCircularityError</li>
+<li>ClassCircularityError在构造时，调用了Throwable的构造函数，然后调用了<code>Spy.ON_BEFORE_METHOD.invoke</code></li>
+<li><p>反射调用优化类<code>sun/reflect/GeneratedMethodAccessor3</code> 在defineClass时，检测到循环，抛出了ClassCircularityError</p>
+</li>
+<li><p>…… 不断抛出ClassCircularityError，最终导致StackOverflowError</p>
+</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这个问题的根源是在Throwable的构造函数里抛出了异常，这样子明显无解。</p>
+<p>为了避免这个问题，需要保证增强过后的Throwable的构造函数里不能抛出任何异常。然而因为jvm的反射调用优化，导致ClassLoader在loadClass时抛出了异常。所以要避免在加载jvm生成反射优化类时抛出异常。</p>
+<p>修改过后的自定义URLClassLoader代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">classLoader = <span class="keyword">new</span> URLClassLoader(<span class="keyword">new</span> URL[]&#123;<span class="keyword">new</span> URL(<span class="string">"file:"</span> + agentJar)&#125;) &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> <span class="keyword">synchronized</span> Class&lt;?&gt; loadClass(String name, <span class="keyword">boolean</span> resolve) <span class="keyword">throws</span> ClassNotFoundException &#123;</span><br><span class="line">        <span class="keyword">final</span> Class&lt;?&gt; loadedClass = findLoadedClass(name);</span><br><span class="line">        <span class="keyword">if</span> (loadedClass != <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> loadedClass;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 优先从parent（SystemClassLoader）里加载系统类，避免抛出ClassNotFoundException</span></span><br><span class="line">        <span class="keyword">if</span>(name != <span class="keyword">null</span> &amp;&amp; (name.startsWith(<span class="string">"sun."</span>) || name.startsWith(<span class="string">"java."</span>))) &#123;</span><br><span class="line">          <span class="keyword">return</span> <span class="keyword">super</span>.loadClass(name, resolve);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            Class&lt;?&gt; aClass = findClass(name);</span><br><span class="line">            <span class="keyword">if</span> (resolve) &#123;</span><br><span class="line">                resolveClass(aClass);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> aClass;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">          <span class="comment">// ignore</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">super</span>.loadClass(name, resolve);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/jvm/" rel="tag"># jvm</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/dumpclass/" rel="next" title="从java进程里dump出类的class文件的小工具--dumpclass">
+                <i class="fa fa-chevron-left"></i> 从java进程里dump出类的class文件的小工具--dumpclass
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/spring-scan-annotation/" rel="prev" title="正确实现用spring扫描自定义的annotation">
+                正确实现用spring扫描自定义的annotation <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#JVM对反射方法调用的优化"><span class="nav-number">1.</span> <span class="nav-text">JVM对反射方法调用的优化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#greys的工作原理"><span class="nav-number">2.</span> <span class="nav-text">greys的工作原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#当使用greys对java-lang-Throwable来增强时，会抛出StackOverflowError"><span class="nav-number">3.</span> <span class="nav-text">当使用greys对java.lang.Throwable来增强时，会抛出StackOverflowError</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#被增强过后的Throwable的代码"><span class="nav-number">4.</span> <span class="nav-text">被增强过后的Throwable的代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ClassNotFoundException-怎么产生的"><span class="nav-number">5.</span> <span class="nav-text">ClassNotFoundException 怎么产生的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ClassCircularityError是怎么产生的"><span class="nav-number">6.</span> <span class="nav-text">ClassCircularityError是怎么产生的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#为什么会抛出ClassCircularityError"><span class="nav-number">7.</span> <span class="nav-text">为什么会抛出ClassCircularityError</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#StackOverflowError怎么产生的"><span class="nav-number">8.</span> <span class="nav-text">StackOverflowError怎么产生的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#完整的异常产生流程"><span class="nav-number">9.</span> <span class="nav-text">完整的异常产生流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">10.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

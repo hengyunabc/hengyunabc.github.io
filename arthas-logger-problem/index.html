@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="现象在应用的 service_stdout.log里一直输出下面的日志，直接把磁盘打满了： 123423:07:34.441 [TAIRCLIENT-1-thread-1] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 14 times in a row.23:07:34.460 [">
+<meta name="keywords" content="java,arthas,logger,classloader">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Arthas实践--抽丝剥茧排查线上应用日志打满问题">
+<meta property="og:url" content="http://hengyunabc.github.io/arthas-logger-problem/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="现象在应用的 service_stdout.log里一直输出下面的日志，直接把磁盘打满了： 123423:07:34.441 [TAIRCLIENT-1-thread-1] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 14 times in a row.23:07:34.460 [">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Arthas实践--抽丝剥茧排查线上应用日志打满问题">
+<meta name="twitter:description" content="现象在应用的 service_stdout.log里一直输出下面的日志，直接把磁盘打满了： 123423:07:34.441 [TAIRCLIENT-1-thread-1] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 14 times in a row.23:07:34.460 [">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/arthas-logger-problem/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Arthas实践--抽丝剥茧排查线上应用日志打满问题 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/arthas-logger-problem/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">Arthas实践--抽丝剥茧排查线上应用日志打满问题
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-10-22 20:58:28" itemprop="dateCreated datePublished" datetime="2018-10-22T20:58:28+00:00">2018-10-22</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><p>在应用的 <code>service_stdout.log</code>里一直输出下面的日志，直接把磁盘打满了：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">23:07:34.441 [TAIRCLIENT-1-thread-1] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 14 times in a row.</span><br><span class="line">23:07:34.460 [TAIRCLIENT-1-thread-3] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 3 times in a row.</span><br><span class="line">23:07:34.461 [TAIRCLIENT-1-thread-4] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 3 times in a row.</span><br><span class="line">23:07:34.462 [TAIRCLIENT-1-thread-5] DEBUG io.netty.channel.nio.NioEventLoop - Selector.select() returned prematurely 3 times in a row.</span><br></pre></td></tr></table></figure>
+<p> <code>service_stdout.log</code>是进程标准输出的重定向，可以初步判定是tair插件把日志输出到了stdout里。</p>
+<p>尽管有了初步的判断，但是具体logger为什么会打到stdout里，还需要进一步排查，常见的方法可能是本地debug。</p>
+<p>下面介绍利用arthas直接在线上定位问题的过程，主要使用<code>sc</code>和<code>getstatic</code>命令。</p>
+<ul>
+<li><a href="https://alibaba.github.io/arthas/sc.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/sc.html</a></li>
+<li><a href="https://alibaba.github.io/arthas/getstatic.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/getstatic.html</a></li>
+</ul>
+<h2 id="定位logger的具体实现"><a href="#定位logger的具体实现" class="headerlink" title="定位logger的具体实现"></a>定位logger的具体实现</h2><p>日志是<code>io.netty.channel.nio.NioEventLoop</code>输出的，到netty的代码里查看，发现是DEBUG级别的输出：</p>
+<ul>
+<li><a href="https://github.com/netty/netty/blob/netty-4.0.35.Final/transport/src/main/java/io/netty/channel/nio/NioEventLoop.java#L673" target="_blank" rel="noopener">https://github.com/netty/netty/blob/netty-4.0.35.Final/transport/src/main/java/io/netty/channel/nio/NioEventLoop.java#L673</a></li>
+</ul>
+<p>然后用arthas的<code>sc</code>命令来查看具体的<code>io.netty.channel.nio.NioEventLoop</code>是从哪里加载的。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span>-<span class="title">info</span>        <span class="title">io</span>.<span class="title">netty</span>.<span class="title">channel</span>.<span class="title">nio</span>.<span class="title">NioEventLoop</span></span></span><br><span class="line"> code-source       file:/opt/app/plugins/tair-plugin/lib/netty-all-4.0.35.Final.jar!/</span><br><span class="line"> name              io.netty.channel.nio.NioEventLoop</span><br><span class="line"> isInterface       <span class="keyword">false</span></span><br><span class="line"> isAnnotation      <span class="keyword">false</span></span><br><span class="line"> isEnum            <span class="keyword">false</span></span><br><span class="line"> isAnonymousClass  <span class="keyword">false</span></span><br><span class="line"> isArray           <span class="keyword">false</span></span><br><span class="line"> isLocalClass      <span class="keyword">false</span></span><br><span class="line"> isMemberClass     <span class="keyword">false</span></span><br><span class="line"> isPrimitive       <span class="keyword">false</span></span><br><span class="line"> isSynthetic       <span class="keyword">false</span></span><br><span class="line"> simple-name       NioEventLoop</span><br><span class="line"> modifier          <span class="keyword">final</span>,<span class="keyword">public</span></span><br><span class="line"> annotation</span><br><span class="line"> interfaces</span><br><span class="line"> <span class="keyword">super</span>-<span class="class"><span class="keyword">class</span>       +-<span class="title">io</span>.<span class="title">netty</span>.<span class="title">channel</span>.<span class="title">SingleThreadEventLoop</span></span></span><br><span class="line"><span class="class">                     +-<span class="title">io</span>.<span class="title">netty</span>.<span class="title">util</span>.<span class="title">concurrent</span>.<span class="title">SingleThreadEventExecutor</span></span></span><br><span class="line"><span class="class">                       +-<span class="title">io</span>.<span class="title">netty</span>.<span class="title">util</span>.<span class="title">concurrent</span>.<span class="title">AbstractScheduledEventExecutor</span></span></span><br><span class="line"><span class="class">                         +-<span class="title">io</span>.<span class="title">netty</span>.<span class="title">util</span>.<span class="title">concurrent</span>.<span class="title">AbstractEventExecutor</span></span></span><br><span class="line"><span class="class">                           +-<span class="title">java</span>.<span class="title">util</span>.<span class="title">concurrent</span>.<span class="title">AbstractExecutorService</span></span></span><br><span class="line"><span class="class">                             +-<span class="title">java</span>.<span class="title">lang</span>.<span class="title">Object</span></span></span><br><span class="line"><span class="class"> <span class="title">class</span>-<span class="title">loader</span>      +-<span class="title">tair</span>-<span class="title">plugin</span>'<span class="title">s</span> <span class="title">ModuleClassLoader</span></span></span><br><span class="line"><span class="class"> <span class="title">classLoaderHash</span>   73<span class="title">ad2d6</span></span></span><br></pre></td></tr></table></figure>
+<p>可见，的确是从tair插件里加载的。</p>
+<p>查看NioEventLoop的代码，可以发现它有一个<code>logger</code>的field：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">NioEventLoop</span> <span class="keyword">extends</span> <span class="title">SingleThreadEventLoop</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> InternalLogger logger = InternalLoggerFactory.getInstance(NioEventLoop<span class="class">.<span class="keyword">class</span>)</span>;</span><br></pre></td></tr></table></figure>
+<p>使用arthas的<code>getstatic</code>命令来查看这个<code>logger</code>具体实现类是什么（使用<code>-c</code>参数指定classloader）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ getstatic -c 73ad2d6 io.netty.channel.nio.NioEventLoop logger &apos;getClass().getName()&apos;</span><br><span class="line">field: logger</span><br><span class="line">@String[io.netty.util.internal.logging.Slf4JLogger]</span><br></pre></td></tr></table></figure>
+<p>可以发现是<code>Slf4JLogger</code>。 </p>
+<p>再查看io.netty.util.internal.logging.Slf4JLogger的实现，发现它内部有一个logger的field：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> io.netty.util.internal.logging;</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> org.slf4j.Logger;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * &lt;a href="http://www.slf4j.org/"&gt;SLF4J&lt;/a&gt; logger.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Slf4JLogger</span> <span class="keyword">extends</span> <span class="title">AbstractInternalLogger</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = <span class="number">108038972685130825L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> <span class="keyword">transient</span> Logger logger;</span><br></pre></td></tr></table></figure>
+<p>那么使用arthas的<code>getstatic</code>命令来查看这个<code>logger</code>属性的值：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$ getstatic -c <span class="number">73</span>ad2d6 io.netty.channel.nio.NioEventLoop logger <span class="string">'logger'</span></span><br><span class="line">field: logger</span><br><span class="line"><span class="meta">@Logger</span>[</span><br><span class="line">    serialVersionUID=<span class="meta">@Long</span>[<span class="number">5454405123156820674</span>],</span><br><span class="line">    FQCN=<span class="meta">@String</span>[ch.qos.logback.classic.Logger],</span><br><span class="line">    name=<span class="meta">@String</span>[io.netty.channel.nio.NioEventLoop],</span><br><span class="line">    level=<span class="keyword">null</span>,</span><br><span class="line">    effectiveLevelInt=<span class="meta">@Integer</span>[<span class="number">10000</span>],</span><br><span class="line">    parent=<span class="meta">@Logger</span>[Logger[io.netty.channel.nio]],</span><br><span class="line">    childrenList=<span class="keyword">null</span>,</span><br><span class="line">    aai=<span class="keyword">null</span>,</span><br><span class="line">    additive=<span class="meta">@Boolean</span>[<span class="keyword">true</span>],</span><br><span class="line">    loggerContext=<span class="meta">@LoggerContext</span>[ch.qos.logback.classic.LoggerContext[<span class="keyword">default</span>]],</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<p>可见，logger的最本质实现类是：<code>ch.qos.logback.classic.Logger</code>。</p>
+<p>再次用<code>getstatic</code>命令来确定jar包的location：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">$ getstatic -c <span class="number">73</span>ad2d6 io.netty.channel.nio.NioEventLoop logger <span class="string">'logger.getClass().getProtectionDomain().getCodeSource().getLocation()'</span></span><br><span class="line">field: logger</span><br><span class="line"><span class="meta">@URL</span>[</span><br><span class="line">    BUILTIN_HANDLERS_PREFIX=<span class="meta">@String</span>[sun.net.www.protocol],</span><br><span class="line">    serialVersionUID=<span class="meta">@Long</span>[-<span class="number">7627629688361524110</span>],</span><br><span class="line">    protocolPathProp=<span class="meta">@String</span>[java.protocol.handler.pkgs],</span><br><span class="line">    protocol=<span class="meta">@String</span>[jar],</span><br><span class="line">    host=<span class="meta">@String</span>[],</span><br><span class="line">    port=<span class="meta">@Integer</span>[-<span class="number">1</span>],</span><br><span class="line">    file=<span class="meta">@String</span>[file:/opt/app/plugins/tair-plugin/lib/logback-classic-<span class="number">1.2</span><span class="number">.3</span>.jar!/],</span><br><span class="line">    query=<span class="keyword">null</span>,</span><br><span class="line">    authority=<span class="meta">@String</span>[],</span><br><span class="line">    path=<span class="meta">@String</span>[file:/opt/app/plugins/tair-plugin/lib/logback-classic-<span class="number">1.2</span><span class="number">.3</span>.jar!/],</span><br><span class="line">    userInfo=<span class="keyword">null</span>,</span><br><span class="line">    ref=<span class="keyword">null</span>,</span><br><span class="line">    hostAddress=<span class="keyword">null</span>,</span><br><span class="line">    handler=<span class="meta">@Handler</span>[com.taobao.pandora.loader.jar.Handler@<span class="number">1</span>a0c361e],</span><br><span class="line">    hashCode=<span class="meta">@Integer</span>[<span class="number">126346621</span>],</span><br><span class="line">    tempState=<span class="keyword">null</span>,</span><br><span class="line">    factory=<span class="meta">@TomcatURLStreamHandlerFactory</span>[org.apache.catalina.webresources.TomcatURLStreamHandlerFactory@<span class="number">3</span>edd7b7],</span><br><span class="line">    handlers=<span class="meta">@Hashtable</span>[isEmpty=<span class="keyword">false</span>;size=<span class="number">4</span>],</span><br><span class="line">    streamHandlerLock=<span class="meta">@Object</span>[java.lang.Object@<span class="number">488</span>ccac9],</span><br><span class="line">    serialPersistentFields=<span class="meta">@ObjectStreamField</span>[][isEmpty=<span class="keyword">false</span>;size=<span class="number">7</span>],</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<p>可见这个<code>ch.qos.logback.classic.Logger</code>的确是tair插件里加载的。</p>
+<h2 id="定位logger的level"><a href="#定位logger的level" class="headerlink" title="定位logger的level"></a>定位logger的level</h2><p>上面已经定位logger的实现类是<code>ch.qos.logback.classic.Logger</code>，但是为什么它会输出<code>DEBUG</code> level的日志？</p>
+<p>其实在上面的<code>getstatic -c 73ad2d6 io.netty.channel.nio.NioEventLoop logger &#39;logger&#39;</code>输出里，已经打印出它的level是null了。如果对logger有所了解的话，可以知道当child logger的level为null时，它的level取决于parent logger的level。</p>
+<p>我们再来看下<code>ch.qos.logback.classic.Logger</code>的代码，它有一个parent logger的属性：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">Logger</span> <span class="keyword">implements</span> <span class="title">org</span>.<span class="title">slf4j</span>.<span class="title">Logger</span>, <span class="title">LocationAwareLogger</span>, <span class="title">AppenderAttachable</span>&lt;<span class="title">ILoggingEvent</span>&gt;, <span class="title">Serializable</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The parent of this category. All categories have at least one ancestor</span></span><br><span class="line"><span class="comment">     * which is the root category.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">transient</span> <span class="keyword">private</span> Logger parent;</span><br></pre></td></tr></table></figure>
+<p>所以，我们可以通过<code>getstatic</code>来获取到这个parent属性的内容。然后通过多个parent操作，可以发现level都是null，最终发现ROOT level是DEBUG 。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$ getstatic -c <span class="number">73</span>ad2d6 io.netty.channel.nio.NioEventLoop logger <span class="string">'logger.parent.parent.parent.parent.parent'</span></span><br><span class="line">field: logger</span><br><span class="line"><span class="meta">@Logger</span>[</span><br><span class="line">    serialVersionUID=<span class="meta">@Long</span>[<span class="number">5454405123156820674</span>],</span><br><span class="line">    FQCN=<span class="meta">@String</span>[ch.qos.logback.classic.Logger],</span><br><span class="line">    name=<span class="meta">@String</span>[ROOT],</span><br><span class="line">    level=<span class="meta">@Level</span>[DEBUG],</span><br><span class="line">    effectiveLevelInt=<span class="meta">@Integer</span>[<span class="number">10000</span>],</span><br><span class="line">    parent=<span class="keyword">null</span>,</span><br><span class="line">    childrenList=<span class="meta">@CopyOnWriteArrayList</span>[isEmpty=<span class="keyword">false</span>;size=<span class="number">2</span>],</span><br><span class="line">    aai=<span class="meta">@AppenderAttachableImpl</span>[ch.qos.logback.core.spi.AppenderAttachableImpl@<span class="number">1</span>ecf9bae],</span><br><span class="line">    additive=<span class="meta">@Boolean</span>[<span class="keyword">true</span>],</span><br><span class="line">    loggerContext=<span class="meta">@LoggerContext</span>[ch.qos.logback.classic.LoggerContext[<span class="keyword">default</span>]],</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<p>所以 <code>io.netty.channel.nio.NioEventLoop</code>的logger的level取的是ROOT logger的配置，即默认值<code>DEBUG</code>。</p>
+<p>具体实现可以查看<code>ch.qos.logback.classic.LoggerContext</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">LoggerContext</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">super</span>();</span><br><span class="line">    <span class="keyword">this</span>.loggerCache = <span class="keyword">new</span> ConcurrentHashMap&lt;String, Logger&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">this</span>.loggerContextRemoteView = <span class="keyword">new</span> LoggerContextVO(<span class="keyword">this</span>);</span><br><span class="line">    <span class="keyword">this</span>.root = <span class="keyword">new</span> Logger(Logger.ROOT_LOGGER_NAME, <span class="keyword">null</span>, <span class="keyword">this</span>);</span><br><span class="line">    <span class="keyword">this</span>.root.setLevel(Level.DEBUG);</span><br><span class="line">    loggerCache.put(Logger.ROOT_LOGGER_NAME, root);</span><br><span class="line">    initEvaluatorMap();</span><br><span class="line">    size = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">this</span>.frameworkPackages = <span class="keyword">new</span> ArrayList&lt;String&gt;();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="为什么logback输出到了stdout里"><a href="#为什么logback输出到了stdout里" class="headerlink" title="为什么logback输出到了stdout里"></a>为什么logback输出到了stdout里</h2><p>上面我们得到结论</p>
+<ul>
+<li>tair插件里的logback默认的level是DEBUG，导致netty里的日志可以被打印出来</li>
+</ul>
+<p>那么我们可以猜测：</p>
+<ul>
+<li>tair里的logback没有特殊配置，或者只配置了tair自己的package，导致ROOT logger的日志直接输出到stdout里</li>
+</ul>
+<p>那么实现上tair里是使用了<code>logger-api</code>，它通过<code>LoggerFactory.getLogger</code>函数获取到了自己package的logger，然后设置level为<code>INFO</code>，并设置了appender。</p>
+<p><strong>换而言之，tair插件里的logback没有设置ROOT logger，所以它的默认level是DEBUG，并且默认的appender会输出到stdout里。</strong></p>
+<p>所以tair插件可以增加设置ROOT logger level为<code>INFO</code>来修复这个问题。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> com.taobao.middleware.logger.Logger logger</span><br><span class="line">			= com.taobao.middleware.logger.LoggerFactory.getLogger(<span class="string">"com.taobao.tair"</span>);</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> com.taobao.middleware.logger.Logger infolog</span><br><span class="line">			= com.taobao.middleware.logger.LoggerFactory.getLogger(<span class="string">"com.taobao.tair.custom-infolog"</span>);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">int</span> JM_LOG_RETAIN_COUNT = <span class="number">3</span>;</span><br><span class="line">	<span class="keyword">public</span> <span class="keyword">static</span> String JM_LOG_FILE_SIZE = <span class="string">"200MB"</span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">static</span> &#123;</span><br><span class="line">		<span class="keyword">try</span> &#123;</span><br><span class="line">			String tmp = System.getProperty(<span class="string">"JM.LOG.RETAIN.COUNT"</span>, <span class="string">"3"</span>);</span><br><span class="line">			JM_LOG_RETAIN_COUNT = Integer.parseInt(tmp);</span><br><span class="line">		&#125; <span class="keyword">catch</span> (NumberFormatException e) &#123;</span><br><span class="line">		&#125;</span><br><span class="line">		JM_LOG_FILE_SIZE = System.getProperty(<span class="string">"JM.LOG.FILE.SIZE"</span>, <span class="string">"200MB"</span>);</span><br><span class="line"></span><br><span class="line">		logger.setLevel(Level.INFO);</span><br><span class="line">		logger.activateAppenderWithSizeRolling(<span class="string">"tair-client"</span>, <span class="string">"tair-client.log"</span>, <span class="string">"UTF-8"</span>,</span><br><span class="line">				TairUtil.splitSize(JM_LOG_FILE_SIZE, <span class="number">0.8</span> / (JM_LOG_RETAIN_COUNT + <span class="number">1</span>)), JM_LOG_RETAIN_COUNT);</span><br><span class="line">		logger.setAdditivity(<span class="keyword">false</span>);</span><br><span class="line">		logger.activateAsync(<span class="number">500</span>, <span class="number">100</span>);</span><br><span class="line"></span><br><span class="line">		logger.info(<span class="string">"JM_LOG_RETAIN_COUNT "</span> + JM_LOG_RETAIN_COUNT + <span class="string">" JM_LOG_FILE_SIZE "</span> + JM_LOG_FILE_SIZE);</span><br><span class="line"></span><br><span class="line">		infolog.setLevel(Level.INFO);</span><br><span class="line">		infolog.activateAppenderWithSizeRolling(<span class="string">"tair-client"</span>, <span class="string">"tair-client-info.log"</span>, <span class="string">"UTF-8"</span>, <span class="string">"10MB"</span>, <span class="number">1</span>);</span><br><span class="line">		infolog.setAdditivity(<span class="keyword">false</span>);</span><br><span class="line">		infolog.activateAsync(<span class="number">500</span>, <span class="number">100</span>);</span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>tair插件里直接以api的方式设置了自己package下的logger</li>
+<li>tair插件里netty的logger的packge和tair并不一样，所以它最终取的是ROOT logger的配置</li>
+<li>logback默认的ROOT logger level是<code>DEBUG</code>，输出是stdout</li>
+<li>利用arthas的<code>sc</code>命令定位具体的类</li>
+<li>利用arthas的<code>getstatic</code>获取static filed的值</li>
+<li>利用logger parent层联的特性，可以向上一层层获取到ROOT logger的配置</li>
+</ul>
+<h2 id="链接"><a href="#链接" class="headerlink" title="链接"></a>链接</h2><ul>
+<li>Arthas开源：<a href="https://github.com/alibaba/arthas" target="_blank" rel="noopener">https://github.com/alibaba/arthas</a></li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/arthas/" rel="tag"># arthas</a>
+          
+            <a href="/tags/logger/" rel="tag"># logger</a>
+          
+            <a href="/tags/classloader/" rel="tag"># classloader</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/spring-boot-arthas-NoSuchMethodError/" rel="next" title="深入Spring Boot：利用Arthas排查NoSuchMethodError">
+                <i class="fa fa-chevron-left"></i> 深入Spring Boot：利用Arthas排查NoSuchMethodError
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/arthas-redefine-case/" rel="prev" title="Arthas实践--使用redefine排查应用奇怪的日志来源">
+                Arthas实践--使用redefine排查应用奇怪的日志来源 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#现象"><span class="nav-number">1.</span> <span class="nav-text">现象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#定位logger的具体实现"><span class="nav-number">2.</span> <span class="nav-text">定位logger的具体实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#定位logger的level"><span class="nav-number">3.</span> <span class="nav-text">定位logger的level</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#为什么logback输出到了stdout里"><span class="nav-number">4.</span> <span class="nav-text">为什么logback输出到了stdout里</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">5.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#链接"><span class="nav-number">6.</span> <span class="nav-text">链接</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

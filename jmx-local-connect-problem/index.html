@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="背景最近排查一个JMX本地连接问题，记录一下。 我们的启动脚本在应用启动后，会通过JMX来动态检查应用状态，那么这里就需要动态启动JMX功能了。 动态打开Java进程的JMX端口 通过下面的代码，可以动态的让目标进程加载management-agent 打开JMX功能后，通过获取com.sun.management.jmxremote.localConnectorAddress的Agent Pro">
+<meta name="keywords" content="java,jvm,visualvm,jmx">
+<meta property="og:type" content="article">
+<meta property="og:title" content="通过Heap dump排查Java JMX连接不上的问题">
+<meta property="og:url" content="http://hengyunabc.github.io/jmx-local-connect-problem/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="背景最近排查一个JMX本地连接问题，记录一下。 我们的启动脚本在应用启动后，会通过JMX来动态检查应用状态，那么这里就需要动态启动JMX功能了。 动态打开Java进程的JMX端口 通过下面的代码，可以动态的让目标进程加载management-agent 打开JMX功能后，通过获取com.sun.management.jmxremote.localConnectorAddress的Agent Pro">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://user-images.githubusercontent.com/1683936/58687979-bde91880-83b5-11e9-88f8-ee498e22337f.png">
+<meta property="og:image" content="https://user-images.githubusercontent.com/1683936/58688109-1c15fb80-83b6-11e9-8afb-cfbedfd0f036.jpg">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="通过Heap dump排查Java JMX连接不上的问题">
+<meta name="twitter:description" content="背景最近排查一个JMX本地连接问题，记录一下。 我们的启动脚本在应用启动后，会通过JMX来动态检查应用状态，那么这里就需要动态启动JMX功能了。 动态打开Java进程的JMX端口 通过下面的代码，可以动态的让目标进程加载management-agent 打开JMX功能后，通过获取com.sun.management.jmxremote.localConnectorAddress的Agent Pro">
+<meta name="twitter:image" content="https://user-images.githubusercontent.com/1683936/58687979-bde91880-83b5-11e9-88f8-ee498e22337f.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/jmx-local-connect-problem/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>通过Heap dump排查Java JMX连接不上的问题 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/jmx-local-connect-problem/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">通过Heap dump排查Java JMX连接不上的问题
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019-06-11 01:01:41" itemprop="dateCreated datePublished" datetime="2019-06-11T01:01:41+00:00">2019-06-11</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h3 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h3><p>最近排查一个JMX本地连接问题，记录一下。</p>
+<p>我们的启动脚本在应用启动后，会通过JMX来动态检查应用状态，那么这里就需要动态启动JMX功能了。</p>
+<h3 id="动态打开Java进程的JMX端口"><a href="#动态打开Java进程的JMX端口" class="headerlink" title="动态打开Java进程的JMX端口"></a>动态打开Java进程的JMX端口</h3><ol>
+<li>通过下面的代码，可以动态的让目标进程加载<code>management-agent</code></li>
+<li>打开JMX功能后，通过获取<code>com.sun.management.jmxremote.localConnectorAddress</code>的Agent Property，可以获取到JMX URL</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> MBeanServerConnection <span class="title">connect</span><span class="params">(String pid)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    String address = attachJmx(pid);</span><br><span class="line"></span><br><span class="line">    JMXServiceURL serviceURL = <span class="keyword">new</span> JMXServiceURL(address);</span><br><span class="line">    connector = JMXConnectorFactory.connect(serviceURL);</span><br><span class="line">    <span class="keyword">return</span> connector.getMBeanServerConnection();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">private</span> String <span class="title">attachJmx</span><span class="params">(String pid)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        virtualmachine = VirtualMachine.attach(pid);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (AttachNotSupportedException e) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IOException(e);</span><br><span class="line">    &#125;</span><br><span class="line">    String javaHome = virtualmachine.getSystemProperties().getProperty(<span class="string">"java.home"</span>);</span><br><span class="line">    String agentPath = javaHome + File.separator + <span class="string">"jre"</span> + File.separator + <span class="string">"lib"</span> + File.separator</span><br><span class="line">                       + <span class="string">"management-agent.jar"</span>;</span><br><span class="line">    File file = <span class="keyword">new</span> File(agentPath);</span><br><span class="line">    <span class="keyword">if</span> (!file.exists()) &#123;</span><br><span class="line">        agentPath = javaHome + File.separator + <span class="string">"lib"</span> + File.separator + <span class="string">"management-agent.jar"</span>;</span><br><span class="line">        file = <span class="keyword">new</span> File(agentPath);</span><br><span class="line">        <span class="keyword">if</span> (!file.exists()) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> IOException(<span class="string">"Management agent not found"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    agentPath = file.getCanonicalPath();</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        virtualmachine.loadAgent(agentPath, <span class="string">"com.sun.management.jmxremote"</span>);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (AgentLoadException e) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IOException(e);</span><br><span class="line">    &#125; <span class="keyword">catch</span> (AgentInitializationException agentinitializationexception) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IOException(agentinitializationexception);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    Properties properties = virtualmachine.getAgentProperties();</span><br><span class="line">    String address = (String) properties.get(<span class="string">"com.sun.management.jmxremote.localConnectorAddress"</span>);</span><br><span class="line">    virtualmachine.detach();</span><br><span class="line">    <span class="keyword">return</span> address;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="为什么JMX连接会失败？"><a href="#为什么JMX连接会失败？" class="headerlink" title="为什么JMX连接会失败？"></a>为什么JMX连接会失败？</h3><p>在用上面的代码动态去连接目标进程时，抛出了下面的异常：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">java.rmi.ConnectException: Connection refused to host: 11.164.235.11; nested exception is:</span><br><span class="line">  java.net.ConnectException: Connection refused</span><br><span class="line">  at sun.rmi.transport.tcp.TCPEndpoint.newSocket(TCPEndpoint.java:619)</span><br><span class="line">  at sun.rmi.transport.tcp.TCPChannel.createConnection(TCPChannel.java:216)</span><br><span class="line">  at sun.rmi.transport.tcp.TCPChannel.newConnection(TCPChannel.java:202)</span><br><span class="line">  at sun.rmi.server.UnicastRef.invoke(UnicastRef.java:130)</span><br><span class="line">  at java.rmi.server.RemoteObjectInvocationHandler.invokeRemoteMethod(RemoteObjectInvocationHandler.java:227)</span><br><span class="line">  at java.rmi.server.RemoteObjectInvocationHandler.invoke(RemoteObjectInvocationHandler.java:179)</span><br><span class="line">  at com.sun.proxy.$Proxy0.newClient(Unknown Source)</span><br><span class="line">  at javax.management.remote.rmi.RMIConnector.getConnection(RMIConnector.java:2430)</span><br><span class="line">  at javax.management.remote.rmi.RMIConnector.connect(RMIConnector.java:308)</span><br><span class="line">  at javax.management.remote.JMXConnectorFactory.connect(JMXConnectorFactory.java:270)</span><br><span class="line">  at javax.management.remote.JMXConnectorFactory.connect(JMXConnectorFactory.java:229)</span><br><span class="line">  at com.test.jmx.JmxLocalConnector.connect(JmxLocalConnector.java:28)</span><br><span class="line">Caused by: java.net.ConnectException: Connection refused</span><br><span class="line">  at java.net.PlainSocketImpl.socketConnect(Native Method)</span><br><span class="line">  at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)</span><br><span class="line">  at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)</span><br><span class="line">  at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)</span><br><span class="line">  at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)</span><br><span class="line">  at java.net.Socket.connect(Socket.java:589)</span><br><span class="line">  at java.net.Socket.connect(Socket.java:538)</span><br><span class="line">  at java.net.Socket.&lt;init&gt;(Socket.java:434)</span><br><span class="line">  at java.net.Socket.&lt;init&gt;(Socket.java:211)</span><br><span class="line">  at sun.rmi.transport.proxy.RMIDirectSocketFactory.createSocket(RMIDirectSocketFactory.java:40)</span><br><span class="line">  at sun.rmi.transport.proxy.RMIMasterSocketFactory.createSocket(RMIMasterSocketFactory.java:148)</span><br><span class="line">  at sun.rmi.transport.tcp.TCPEndpoint.newSocket(TCPEndpoint.java:613)</span><br><span class="line">  ... 13 more</span><br></pre></td></tr></table></figure>
+<ul>
+<li>检查本机IP是 <code>11.164.234.171</code></li>
+<li>为什么rmi连接的是一个外部的IP <code>11.164.235.11</code>？</li>
+</ul>
+<p>通过调试，发现<code>management-agent</code>加载成功了，<code>localConnectorAddress</code>的值是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jmx:rmi://127.0.0.1/stub/rO0ABXN9AAAAAQAlamF2YXgubWFuYWdlbWVudC5yZW1vdGUucm1pLlJNSVNlcnZlcnhyABdqYXZhLmxhbmcucmVmbGVjdC5Qcm94eeEn2iDMEEPLAgABTAABaHQAJUxqYXZhL2xhbmcvcmVmbGVjdC9JbnZvY2F0aW9uSGFuZGxlcjt4cHNyAC1qYXZhLnJtaS5zZXJ2ZXIuUmVtb3RlT2JqZWN0SW52b2NhdGlvbkhhbmRsZXIAAAAAAAAAAgIAAHhyABxqYXZhLnJtaS5zZXJ2ZXIuUmVtb3RlT2JqZWN002G0kQxhMx4DAAB4cHc4AAtVbmljYXN0UmVmMgAADTExLjE2NC4yMzUuMTEAAIfoCEScYyGQodFlwEdFAAABawK/zE6AAQB4</span><br></pre></td></tr></table></figure>
+<p><strong>为什么显示的是<code>127.0.0.1</code>，但实际连接的是<code>11.164.235.11</code>？是不是在连接时出的问题？</strong></p>
+<p>再仔细调试，发现</p>
+<ol>
+<li>jmx是获取到stub后的字符串</li>
+<li>做base64解密，再通过<code>ObjectInputStream</code>解析</li>
+<li><code>readObject</code>得到<code>RMIServer</code>对象来连接的。</li>
+</ol>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//javax.management.remote.rmi.RMIConnector.findRMIServer(JMXServiceURL, Map&lt;String, Object&gt;)</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">//--------------------------------------------------------------------</span></span><br><span class="line">    <span class="comment">// Private stuff - RMIServer creation</span></span><br><span class="line">    <span class="comment">//--------------------------------------------------------------------</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> RMIServer <span class="title">findRMIServer</span><span class="params">(JMXServiceURL directoryURL,</span></span></span><br><span class="line"><span class="function"><span class="params">            Map&lt;String, Object&gt; environment)</span></span></span><br><span class="line"><span class="function">            <span class="keyword">throws</span> NamingException, IOException </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">boolean</span> isIiop = RMIConnectorServer.isIiopURL(directoryURL,<span class="keyword">true</span>);</span><br><span class="line">        <span class="keyword">if</span> (isIiop) &#123;</span><br><span class="line">            <span class="comment">// Make sure java.naming.corba.orb is in the Map.</span></span><br><span class="line">            environment.put(EnvHelp.DEFAULT_ORB,resolveOrb(environment));</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        String path = directoryURL.getURLPath();</span><br><span class="line">        <span class="keyword">int</span> end = path.indexOf(<span class="string">';'</span>);</span><br><span class="line">        <span class="keyword">if</span> (end &lt; <span class="number">0</span>) end = path.length();</span><br><span class="line">        <span class="keyword">if</span> (path.startsWith(<span class="string">"/jndi/"</span>))</span><br><span class="line">            <span class="keyword">return</span> findRMIServerJNDI(path.substring(<span class="number">6</span>,end), environment, isIiop);</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (path.startsWith(<span class="string">"/stub/"</span>))</span><br><span class="line">            <span class="keyword">return</span> findRMIServerJRMP(path.substring(<span class="number">6</span>,end), environment, isIiop);</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (path.startsWith(<span class="string">"/ior/"</span>)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!IIOPHelper.isAvailable())</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> IOException(<span class="string">"iiop protocol not available"</span>);</span><br><span class="line">            <span class="keyword">return</span> findRMIServerIIOP(path.substring(<span class="number">5</span>,end), environment, isIiop);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="keyword">final</span> String msg = <span class="string">"URL path must begin with /jndi/ or /stub/ "</span> +</span><br><span class="line">                    <span class="string">"or /ior/: "</span> + path;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> MalformedURLException(msg);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">private</span> RMIServer <span class="title">findRMIServerJRMP</span><span class="params">(String base64, Map&lt;String, ?&gt; env, <span class="keyword">boolean</span> isIiop)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        <span class="comment">// could forbid "iiop:" URL here -- but do we need to?</span></span><br><span class="line">        <span class="keyword">final</span> <span class="keyword">byte</span>[] serialized;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            serialized = base64ToByteArray(base64);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IllegalArgumentException e) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> MalformedURLException(<span class="string">"Bad BASE64 encoding: "</span> +</span><br><span class="line">                    e.getMessage());</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">final</span> ByteArrayInputStream bin = <span class="keyword">new</span> ByteArrayInputStream(serialized);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">final</span> ClassLoader loader = EnvHelp.resolveClientClassLoader(env);</span><br><span class="line">        <span class="keyword">final</span> ObjectInputStream oin =</span><br><span class="line">                (loader == <span class="keyword">null</span>) ?</span><br><span class="line">                    <span class="keyword">new</span> ObjectInputStream(bin) :</span><br><span class="line">                    <span class="keyword">new</span> ObjectInputStreamWithLoader(bin, loader);</span><br><span class="line">        <span class="keyword">final</span> Object stub;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            stub = oin.readObject();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (ClassNotFoundException e) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> MalformedURLException(<span class="string">"Class not found: "</span> + e);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> (RMIServer)stub;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>通过代码处理，发现</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rO0ABXN9AAAAAQAlamF2YXgubWFuYWdlbWVudC5yZW1vdGUucm1pLlJNSVNlcnZlcnhyABdqYXZhLmxhbmcucmVmbGVjdC5Qcm94eeEn2iDMEEPLAgABTAABaHQAJUxqYXZhL2xhbmcvcmVmbGVjdC9JbnZvY2F0aW9uSGFuZGxlcjt4cHNyAC1qYXZhLnJtaS5zZXJ2ZXIuUmVtb3RlT2JqZWN0SW52b2NhdGlvbkhhbmRsZXIAAAAAAAAAAgIAAHhyABxqYXZhLnJtaS5zZXJ2ZXIuUmVtb3RlT2JqZWN002G0kQxhMx4DAAB4cHc4AAtVbmljYXN0UmVmMgAADTExLjE2NC4yMzUuMTEAAIfoCEScYyGQodFlwEdFAAABawK/zE6AAQB4</span><br></pre></td></tr></table></figure>
+<p>转换为了：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RMIServerImpl_Stub[UnicastRef2 [liveRef: [endpoint:[11.164.235.11:26449](remote),objID:[-5ddae53d:16b0887d710:-7fff, 7209064096623493021]]]]</span><br></pre></td></tr></table></figure>
+<p><strong>可见RMI Server的IP的确是<code>11.164.235.11</code>。</strong></p>
+<p>那么现在问题变成了：</p>
+<ul>
+<li>为什么JVM动态加载了<code>management-agent</code>，得到的JMX URL是指向外部IP的？</li>
+</ul>
+<h3 id="通过heap-dump定位IP字符串"><a href="#通过heap-dump定位IP字符串" class="headerlink" title="通过heap dump定位IP字符串"></a>通过heap dump定位IP字符串</h3><p>但是调试<code>management-agent</code>的加载过程可能会比较痛苦，于是考虑从别的地方入手。</p>
+<p>从上面的调查里，发现<code>management-agent</code>启动之后，<code>11.164.235.11</code>这个外部IP就会出现在JVM内存里，那么考虑用heap dump的方式来定位。</p>
+<p>通过执行heap dump，再用<code>jvisualvm</code>来分析。</p>
+<p>用OQL来搜索所有包含<code>11.164.235.11</code>的String：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> s <span class="keyword">from</span> java.lang.String s <span class="keyword">where</span> s.toString().equals(<span class="string">"11.164.235.11"</span>)</span><br></pre></td></tr></table></figure>
+<p>可以发现有好几个结果：</p>
+<p><img src="https://user-images.githubusercontent.com/1683936/58687979-bde91880-83b5-11e9-88f8-ee498e22337f.png" alt></p>
+<p>再依次点开，查看引用，<strong>发现其中一个引用的字段名是<code>localHost</code></strong>：</p>
+<p><img src="https://user-images.githubusercontent.com/1683936/58688109-1c15fb80-83b6-11e9-8afb-cfbedfd0f036.jpg" alt></p>
+<p><strong>因此可以猜测：是不是localHost域名解析有问题？</strong></p>
+<h3 id="定位localHost域名解析问题"><a href="#定位localHost域名解析问题" class="headerlink" title="定位localHost域名解析问题"></a>定位localHost域名解析问题</h3><p>执行hostname命令，得到机器名，再ping一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$hostname</span><br><span class="line">web-app201641.we42</span><br><span class="line"></span><br><span class="line">$ping web-app201641.we42</span><br><span class="line">PING web-app201641.we42 (11.164.235.11) 56(84) bytes of data.</span><br></pre></td></tr></table></figure>
+<p>发现本机被解析到<code>11.164.235.11</code>了，但是本机的IP是<code>11.164.234.171</code>：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ifconfig</span><br><span class="line">eth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500</span><br><span class="line">        inet 11.164.234.171  netmask 255.255.255.0  broadcast 11.164.234.255</span><br></pre></td></tr></table></figure>
+<p>到这里，大概猜到原因了，检查下 <code>/etc/hosts</code>文件，果然发现有配置：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">11.164.235.11  web-app201641.we42</span><br></pre></td></tr></table></figure>
+<p>把这个错误的host配置去掉之后，再执行jmx连接终于成功了。</p>
+<p>为什么会有错误的hosts配置呢？据说是机器迁移时遗留的。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>动态JMX连接的工作原理：</p>
+<ol>
+<li>让目标<code>VirtualMachine</code>动态加载<code>management-agent</code></li>
+<li>从Agent Properties里获取到JMX连接地址：<code>com.sun.management.jmxremote.localConnectorAddress</code></li>
+<li>JMX URL里带<code>stub</code>的字符串，实际上是base64转换为byte[]，再用<code>ObjectInputStream</code>转换为<code>RMIServer</code></li>
+<li>JMX实际上是通过RMI来连接的</li>
+</ol>
+<p>排查问题的关键：</p>
+<ol>
+<li>定位错误连接的IP</li>
+<li>heap dump</li>
+<li>用OQL从heap dump里查找IP字符串，再查看相关的引用来获取信息</li>
+</ol>
+<h3 id="链接"><a href="#链接" class="headerlink" title="链接"></a>链接</h3><ul>
+<li><a href="https://visualvm.github.io/" target="_blank" rel="noopener">ViauslVM</a></li>
+<li><a href="http://cr.openjdk.java.net/~sundar/8022483/webrev.01/raw_files/new/src/share/classes/com/sun/tools/hat/resources/oqlhelp.html" target="_blank" rel="noopener">Object Query Language (OQL)</a></li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/jvm/" rel="tag"># jvm</a>
+          
+            <a href="/tags/visualvm/" rel="tag"># visualvm</a>
+          
+            <a href="/tags/jmx/" rel="tag"># jmx</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/arthas-springmvc-controller/" rel="next" title="Arthas实践：是哪个Controller处理了请求？">
+                <i class="fa fa-chevron-left"></i> Arthas实践：是哪个Controller处理了请求？
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/arthas-jad/" rel="prev" title="Arthas源码分析--jad反编译原理">
+                Arthas源码分析--jad反编译原理 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#动态打开Java进程的JMX端口"><span class="nav-number">2.</span> <span class="nav-text">动态打开Java进程的JMX端口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#为什么JMX连接会失败？"><span class="nav-number">3.</span> <span class="nav-text">为什么JMX连接会失败？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#通过heap-dump定位IP字符串"><span class="nav-number">4.</span> <span class="nav-text">通过heap dump定位IP字符串</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#定位localHost域名解析问题"><span class="nav-number">5.</span> <span class="nav-text">定位localHost域名解析问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#链接"><span class="nav-number">7.</span> <span class="nav-text">链接</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="写在前面的话在C++11之后，std::bind是C++标准库的一个组件了。一开始想弄个C++11的实现来研究下，发现里面用到了可变参数模板（代码变得非常神奇）. http://llvm.org/svn/llvm-project/libcxx/trunk/include/functional 还是弄个原始点的boost的实现来研究下。 话说网上关于boost::bind的实现的文章也有不少，不过大">
+<meta name="keywords" content="cpp,boost">
+<meta property="og:type" content="article">
+<meta property="og:title" content="详细解析boost中bind的实现">
+<meta property="og:url" content="http://hengyunabc.github.io/cpp-boost-bind/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="写在前面的话在C++11之后，std::bind是C++标准库的一个组件了。一开始想弄个C++11的实现来研究下，发现里面用到了可变参数模板（代码变得非常神奇）. http://llvm.org/svn/llvm-project/libcxx/trunk/include/functional 还是弄个原始点的boost的实现来研究下。 话说网上关于boost::bind的实现的文章也有不少，不过大">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="详细解析boost中bind的实现">
+<meta name="twitter:description" content="写在前面的话在C++11之后，std::bind是C++标准库的一个组件了。一开始想弄个C++11的实现来研究下，发现里面用到了可变参数模板（代码变得非常神奇）. http://llvm.org/svn/llvm-project/libcxx/trunk/include/functional 还是弄个原始点的boost的实现来研究下。 话说网上关于boost::bind的实现的文章也有不少，不过大">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/cpp-boost-bind/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>详细解析boost中bind的实现 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/cpp-boost-bind/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">详细解析boost中bind的实现
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2012-07-26 21:58:28" itemprop="dateCreated datePublished" datetime="2012-07-26T21:58:28+00:00">2012-07-26</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="写在前面的话"><a href="#写在前面的话" class="headerlink" title="写在前面的话"></a>写在前面的话</h2><p>在C++11之后，std::bind是C++标准库的一个组件了。一开始想弄个C++11的实现来研究下，发现里面用到了可变参数模板（代码变得非常神奇）.</p>
+<p><a href="http://llvm.org/svn/llvm-project/libcxx/trunk/include/functional" target="_blank" rel="noopener">http://llvm.org/svn/llvm-project/libcxx/trunk/include/functional</a></p>
+<p>还是弄个原始点的boost的实现来研究下。</p>
+<p>话说网上关于boost::bind的实现的文章也有不少，不过大多数都是贴一段代码，再扯一通，结果到头来什么都没看明白。（起码LZ是。。）</p>
+<p>花了一天的功夫，最终从boost::bind的源代码中抠出了可编绎运行的代码。</p>
+<p>下面一步一步来解析boost::bind的实现。</p>
+<h2 id="标准库中的fouctor和bind1st的实现"><a href="#标准库中的fouctor和bind1st的实现" class="headerlink" title="标准库中的fouctor和bind1st的实现"></a>标准库中的fouctor和bind1st的实现</h2><p>首先从简单的入手。先看下标准库中的fouctor和bind1st的实现（为了防止和标准库的命名冲突，全部都在命名后面加了2）。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;algorithm&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Arg1, <span class="keyword">typename</span> _Arg2, <span class="keyword">typename</span> _Result&gt;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">binary_function2</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> _Arg1 first_argument_type;</span><br><span class="line">	<span class="keyword">typedef</span> _Arg2 second_argument_type;</span><br><span class="line">	<span class="keyword">typedef</span> _Result result_type;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Tp&gt;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">equal_to2</span>:</span> <span class="keyword">public</span> binary_function2&lt;_Tp, _Tp, <span class="keyword">bool</span>&gt; &#123;</span><br><span class="line">	<span class="function"><span class="keyword">bool</span> <span class="title">operator</span><span class="params">()</span><span class="params">(<span class="keyword">const</span> _Tp&amp; __x, <span class="keyword">const</span> _Tp&amp; __y)</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> __x == __y;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Arg, <span class="keyword">typename</span> _Result&gt;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">unary_function2</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> _Arg argument_type;</span><br><span class="line">	<span class="keyword">typedef</span> _Result result_type;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Operation&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">binder1st2</span>:</span> <span class="keyword">public</span> unary_function2&lt;</span><br><span class="line">		<span class="keyword">typename</span> _Operation::second_argument_type,</span><br><span class="line">		<span class="keyword">typename</span> _Operation::result_type&gt; &#123;</span><br><span class="line"><span class="keyword">protected</span>:</span><br><span class="line">	_Operation op;</span><br><span class="line">	<span class="keyword">typename</span> _Operation::first_argument_type value;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	binder1st2(<span class="keyword">const</span> _Operation&amp; __x,</span><br><span class="line">			<span class="keyword">const</span> <span class="keyword">typename</span> _Operation::first_argument_type&amp; __y) :</span><br><span class="line">			op(__x), value(__y) &#123;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="function"><span class="keyword">typename</span> _Operation::result_type <span class="title">operator</span><span class="params">()</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">			<span class="keyword">const</span> <span class="keyword">typename</span> _Operation::second_argument_type&amp; __x)</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> op(value, __x);</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	<span class="function"><span class="keyword">typename</span> _Operation::result_type <span class="title">operator</span><span class="params">()</span><span class="params">(</span></span></span><br><span class="line"><span class="function"><span class="params">			<span class="keyword">typename</span> _Operation::second_argument_type&amp; __x)</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> op(value, __x);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Operation, <span class="keyword">typename</span> _Tp&gt;</span><br><span class="line"><span class="function"><span class="keyword">inline</span> binder1st2&lt;_Operation&gt; <span class="title">bind1st2</span><span class="params">(<span class="keyword">const</span> _Operation&amp; __fn, <span class="keyword">const</span> _Tp&amp; __x)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> _Operation::first_argument_type _Arg1_type;</span><br><span class="line">	<span class="keyword">return</span> binder1st2&lt;_Operation&gt;(__fn, _Arg1_type(__x));</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="function">binder1st2&lt;equal_to2&lt;<span class="keyword">int</span>&gt; &gt; <span class="title">equal_to_10</span><span class="params">(equal_to2&lt;<span class="keyword">int</span>&gt;(), <span class="number">10</span>)</span></span>;</span><br><span class="line">	<span class="keyword">int</span> numbers[] = &#123; <span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>, <span class="number">50</span>, <span class="number">10</span> &#125;;</span><br><span class="line">	<span class="keyword">int</span> cx;</span><br><span class="line">	cx = <span class="built_in">std</span>::count_if(numbers, numbers + <span class="number">6</span>, bind1st(equal_to2&lt;<span class="keyword">int</span>&gt;(), <span class="number">10</span>));</span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"There are "</span> &lt;&lt; cx &lt;&lt; <span class="string">" elements that are equal to 10.\n"</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>上面的实现还是比较简单的，希望还没有看晕。:)</p>
+<p>从代码可以看出binder1st的实现，实制上是把参数保存起来，等到调用时，再取出来使用。</p>
+<p>boost::bind从原理上来说，也是这么回事，但是要复杂得多。</p>
+<h2 id="解析简化版bind2"><a href="#解析简化版bind2" class="headerlink" title="解析简化版bind2"></a>解析简化版bind2</h2><p>下面是从boost::bind源码中抠出来的，一个简单的bind的实现（bind改为bind2），主流编译器应该都可以编统执行。</p>
+<p>为了方便理解程序运行过程，代码中增加了一些cout输出。</p>
+<p>myBind.h：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br><span class="line">222</span><br><span class="line">223</span><br><span class="line">224</span><br><span class="line">225</span><br><span class="line">226</span><br><span class="line">227</span><br><span class="line">228</span><br><span class="line">229</span><br><span class="line">230</span><br><span class="line">231</span><br><span class="line">232</span><br><span class="line">233</span><br><span class="line">234</span><br><span class="line">235</span><br><span class="line">236</span><br><span class="line">237</span><br><span class="line">238</span><br><span class="line">239</span><br><span class="line">240</span><br><span class="line">241</span><br><span class="line">242</span><br><span class="line">243</span><br><span class="line">244</span><br><span class="line">245</span><br><span class="line">246</span><br><span class="line">247</span><br><span class="line">248</span><br><span class="line">249</span><br><span class="line">250</span><br><span class="line">251</span><br><span class="line">252</span><br><span class="line">253</span><br><span class="line">254</span><br><span class="line">255</span><br><span class="line">256</span><br><span class="line">257</span><br><span class="line">258</span><br><span class="line">259</span><br><span class="line">260</span><br><span class="line">261</span><br><span class="line">262</span><br><span class="line">263</span><br><span class="line">264</span><br><span class="line">265</span><br><span class="line">266</span><br><span class="line">267</span><br><span class="line">268</span><br><span class="line">269</span><br><span class="line">270</span><br><span class="line">271</span><br><span class="line">272</span><br><span class="line">273</span><br><span class="line">274</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> BOOST_BIND_BIND_HPP_INCLUDED__Mybind</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BOOST_BIND_BIND_HPP_INCLUDED__Mybind</span></span><br><span class="line"> </span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">namespace</span> boost &#123;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">struct</span> <span class="title">is_placeholder</span> &#123;</span></span><br><span class="line">	<span class="keyword">enum</span> _vt &#123;</span><br><span class="line">		value = <span class="number">0</span></span><br><span class="line">	&#125;;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">int</span> I&gt; <span class="class"><span class="keyword">struct</span> <span class="title">arg</span> &#123;</span></span><br><span class="line">	arg() &#123;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">struct</span> <span class="title">type</span> &#123;</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">namespace</span> _bi <span class="comment">// implementation details</span></span><br><span class="line">&#123;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>&gt; <span class="title">struct</span> <span class="title">storage1</span> &#123;</span></span><br><span class="line">	<span class="function"><span class="keyword">explicit</span> <span class="title">storage1</span><span class="params">(A1 a1)</span> :</span></span><br><span class="line"><span class="function">			<span class="title">a1_</span><span class="params">(a1)</span> </span>&#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"storage1  storage1(A1 a1)"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	A1 a1_;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">int</span> I&gt; <span class="class"><span class="keyword">struct</span> <span class="title">storage1</span>&lt;boost::arg&lt;I&gt; &gt; &#123;</span></span><br><span class="line">	<span class="function"><span class="keyword">explicit</span> <span class="title">storage1</span><span class="params">(boost::arg&lt;I&gt;)</span> </span>&#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"storage1  storage1(boost::arg&lt;I&gt;)"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">static</span> boost::arg&lt;I&gt; <span class="title">a1_</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> boost::arg&lt;I&gt;();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">int</span> I&gt; <span class="class"><span class="keyword">struct</span> <span class="title">storage1</span>&lt;boost::arg&lt;I&gt; (*)()&gt; &#123;</span></span><br><span class="line">	<span class="function"><span class="keyword">explicit</span> <span class="title">storage1</span><span class="params">(boost::arg&lt;I&gt; (*)())</span> </span>&#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"storage1  storage1(boost::arg&lt;I&gt; (*)())"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">static</span> boost::arg&lt;I&gt; <span class="title">a1_</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> boost::arg&lt;I&gt;();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt; <span class="title">struct</span> <span class="title">storage2</span>:</span> <span class="keyword">public</span> storage1&lt;A1&gt; &#123;</span><br><span class="line">	<span class="keyword">typedef</span> storage1&lt;A1&gt; inherited;</span><br><span class="line">	storage2(A1 a1, A2 a2) :</span><br><span class="line">			storage1&lt;A1&gt;(a1), a2_(a2) &#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"storage2  storage2(A1 a1, A2 a2)"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	A2 a2_;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">int</span> <span class="title">I</span>&gt; <span class="title">struct</span> <span class="title">storage2</span>&lt;A1, boost::arg&lt;I&gt; &gt; :</span> <span class="keyword">public</span> storage1&lt;</span><br><span class="line">		A1&gt; &#123;</span><br><span class="line">	<span class="keyword">typedef</span> storage1&lt;A1&gt; inherited;</span><br><span class="line">	storage2(A1 a1, boost::arg&lt;I&gt;) :</span><br><span class="line">			storage1&lt;A1&gt;(a1) &#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"storage2  storage2(A1 a1, boost::arg&lt;I&gt;)"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">static</span> boost::arg&lt;I&gt; <span class="title">a2_</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> boost::arg&lt;I&gt;();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">int</span> <span class="title">I</span>&gt; <span class="title">struct</span> <span class="title">storage2</span>&lt;A1, boost::arg&lt;I&gt; (*)()&gt; :</span> <span class="keyword">public</span> storage1&lt;</span><br><span class="line">		A1&gt; &#123;</span><br><span class="line">	<span class="keyword">typedef</span> storage1&lt;A1&gt; inherited;</span><br><span class="line">	storage2(A1 a1, boost::arg&lt;I&gt; (*)()) :</span><br><span class="line">			storage1&lt;A1&gt;(a1) &#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"storage2  storage2(A1 a1, boost::arg&lt;I&gt; (*)())"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">static</span> boost::arg&lt;I&gt; <span class="title">a2_</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> boost::arg&lt;I&gt;();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// result_traits</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">F</span>&gt; <span class="title">struct</span> <span class="title">result_traits</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> R type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">unspecified</span> &#123;</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">F</span>&gt; <span class="title">struct</span> <span class="title">result_traits</span>&lt;unspecified, F&gt; &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> F::result_type type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// value</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">class</span> <span class="title">value</span> &#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	value(T <span class="keyword">const</span> &amp; t) :</span><br><span class="line">			t_(t) &#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function">T &amp; <span class="title">get</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> t_;</span><br><span class="line">	&#125;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	T t_;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// type</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">class</span> <span class="title">type</span> &#123;</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// unwrap</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">F</span>&gt; <span class="title">struct</span> <span class="title">unwrapper</span> &#123;</span></span><br><span class="line">	<span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> F &amp; <span class="title">unwrap</span><span class="params">(F &amp; f, <span class="keyword">long</span>)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> f;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// listN</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">list0</span> &#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	list0() &#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">T</span> &amp; <span class="title">operator</span>[](_<span class="title">bi</span>:</span>:value&lt;T&gt; &amp; v) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list0  T &amp; operator[](_bi::value&lt;T&gt; &amp; v)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> v.get();</span><br><span class="line">	&#125;</span><br><span class="line">	template&lt;class R, class F, class A&gt; R operator()(type&lt;R&gt;, F &amp; f, A &amp;,</span><br><span class="line">			<span class="keyword">long</span>) &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list0  R operator()(type&lt;R&gt;, F &amp; f, A &amp;, long)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> unwrapper&lt;F&gt;::unwrap(f, <span class="number">0</span>)();</span><br><span class="line">	&#125;</span><br><span class="line">	template&lt;class F, class A&gt; void operator()(type&lt;void&gt;, F &amp; f, A &amp;, int) &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list0  void operator()(type&lt;void&gt;, F &amp; f, A &amp;, int)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		unwrapper&lt;F&gt;::unwrap(f, <span class="number">0</span>)();</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>&gt; <span class="title">class</span> <span class="title">list1</span>:</span> <span class="keyword">private</span> storage1&lt;A1&gt; &#123;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="keyword">typedef</span> storage1&lt;A1&gt; base_type;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="function"><span class="keyword">explicit</span> <span class="title">list1</span><span class="params">(A1 a1)</span> :</span></span><br><span class="line"><span class="function">			<span class="title">base_type</span><span class="params">(a1)</span> </span>&#123;</span><br><span class="line">	&#125;</span><br><span class="line">	A1 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">1</span>&gt;) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> base_type::a1_;</span><br><span class="line">	&#125;</span><br><span class="line">	A1 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">1</span>&gt; (*)()) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> base_type::a1_;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">T</span> &amp; <span class="title">operator</span>[](_<span class="title">bi</span>:</span>:value&lt;T&gt; &amp; v) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="keyword">return</span> v.get();</span><br><span class="line">	&#125;</span><br><span class="line">	template&lt;class R, class F, class A&gt; R operator()(type&lt;R&gt;, F &amp; f, A &amp; a,</span><br><span class="line">			<span class="keyword">long</span>) &#123;</span><br><span class="line">		<span class="keyword">return</span> unwrapper&lt;F&gt;::unwrap(f, <span class="number">0</span>)(a[base_type::a1_]);</span><br><span class="line">	&#125;</span><br><span class="line"><span class="comment">//	template&lt;class F, class A&gt; void operator()(type&lt;void&gt;, F &amp; f, A &amp; a, int) &#123;</span></span><br><span class="line"><span class="comment">//		unwrapper&lt;F&gt;::unwrap(f, 0)(a[base_type::a1_]);</span></span><br><span class="line"><span class="comment">//	&#125;</span></span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt; <span class="title">class</span> <span class="title">list2</span>:</span> <span class="keyword">private</span> storage2&lt;A1, A2&gt; &#123;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	<span class="keyword">typedef</span> storage2&lt;A1, A2&gt; base_type;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	list2(A1 a1, A2 a2) :</span><br><span class="line">			base_type(a1, a2) &#123;</span><br><span class="line">	&#125;</span><br><span class="line">	A1 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">1</span>&gt;) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;1&gt;)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> base_type::a1_;</span><br><span class="line">	&#125;</span><br><span class="line">	A2 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">2</span>&gt;) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;2&gt;)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> base_type::a2_;</span><br><span class="line">	&#125;</span><br><span class="line">	A1 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">1</span>&gt; (*)()) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;1&gt; (*)())"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> base_type::a1_;</span><br><span class="line">	&#125;</span><br><span class="line">	A2 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">2</span>&gt; (*)()) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;2&gt; (*)())"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> base_type::a2_;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">T</span> &amp; <span class="title">operator</span>[](_<span class="title">bi</span>:</span>:value&lt;T&gt; &amp; v) <span class="keyword">const</span> &#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"T &amp; operator[](_bi::value&lt;T&gt; &amp; v)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		<span class="keyword">return</span> v.get();</span><br><span class="line">	&#125;</span><br><span class="line">	template&lt;class R, class F, class A&gt; R operator()(type&lt;R&gt;, F &amp; f, A &amp; a,</span><br><span class="line">			<span class="keyword">long</span>) &#123;</span><br><span class="line">		<span class="keyword">return</span> f(a[base_type::a1_], a[base_type::a2_]);</span><br><span class="line"><span class="comment">//		return unwrapper&lt;F&gt;::unwrap(f, 0)(a[base_type::a1_], a[base_type::a2_]);</span></span><br><span class="line">	&#125;</span><br><span class="line"><span class="comment">//	template&lt;class F, class A&gt; void operator()(type&lt;void&gt;, F &amp; f, A &amp; a, int) &#123;</span></span><br><span class="line"><span class="comment">//		unwrapper&lt;F&gt;::unwrap(f, 0)(a[base_type::a1_], a[base_type::a2_]);</span></span><br><span class="line"><span class="comment">//	&#125;</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// bind_t</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">F</span>, <span class="title">class</span> <span class="title">L</span>&gt; <span class="title">class</span> <span class="title">bind_t</span> &#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">bind_t</span> this_type;</span><br><span class="line">	<span class="keyword">bind_t</span>(F f, L <span class="keyword">const</span> &amp; l) :</span><br><span class="line">			f_(f), l_(l) &#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> result_traits&lt;R, F&gt;::type result_type;</span><br><span class="line">	<span class="function">result_type <span class="title">operator</span><span class="params">()</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="built_in">cout</span> &lt;&lt; <span class="string">"bind_t::result_type operator()()"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">		list0 a;</span><br><span class="line">		<span class="keyword">return</span> l_(type&lt;result_type&gt;(), f_, a, <span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="function"><span class="keyword">template</span>&lt;class A1&gt; result_type <span class="title">operator</span><span class="params">()</span><span class="params">(A1 &amp; a1)</span> </span>&#123;</span><br><span class="line">		<span class="function">list1&lt;A1 &amp;&gt; <span class="title">a</span><span class="params">(a1)</span></span>;</span><br><span class="line">		<span class="keyword">return</span> l_(type&lt;result_type&gt;(), f_, a, <span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	template&lt;class A1, class A2&gt; result_type operator()(A1 &amp; a1, A2 &amp; a2) &#123;</span><br><span class="line">		list2&lt;A1 &amp;, A2 &amp;&gt; a(a1, a2);</span><br><span class="line">		<span class="keyword">return</span> l_(type&lt;result_type&gt;(), f_, a, <span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	F f_;</span><br><span class="line">	L l_;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>, <span class="title">int</span> <span class="title">I</span>&gt; <span class="title">struct</span> <span class="title">add_value_2</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> boost::arg&lt;I&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">struct</span> <span class="title">add_value_2</span>&lt;T, 0&gt; &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> _bi::value&lt;T&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">struct</span> <span class="title">add_value</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> add_value_2&lt;T, boost::is_placeholder&lt;T&gt;::value&gt;::type type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">struct</span> <span class="title">add_value</span>&lt;value&lt;T&gt; &gt; &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> _bi::value&lt;T&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">int</span> I&gt; <span class="class"><span class="keyword">struct</span> <span class="title">add_value</span>&lt;arg&lt;I&gt; &gt; &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> boost::arg&lt;I&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">//template&lt;int I&gt; struct add_value&lt;arg&lt;I&gt; (*)()&gt; &#123;</span></span><br><span class="line"><span class="comment">//	typedef boost::arg&lt;I&gt; (*type)();</span></span><br><span class="line"><span class="comment">//&#125;;</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">F</span>, <span class="title">class</span> <span class="title">L</span>&gt; <span class="title">struct</span> <span class="title">add_value</span>&lt;bind_t&lt;R, F, L&gt; &gt; &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">bind_t</span>&lt;R, F, L&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// list_av_N</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>&gt; <span class="title">struct</span> <span class="title">list_av_1</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> add_value&lt;A1&gt;::type B1;</span><br><span class="line">	<span class="keyword">typedef</span> list1&lt;B1&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt; <span class="title">struct</span> <span class="title">list_av_2</span> &#123;</span></span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> add_value&lt;A1&gt;::type B1;</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> add_value&lt;A2&gt;::type B2;</span><br><span class="line">	<span class="keyword">typedef</span> list2&lt;B1, B2&gt; type;</span><br><span class="line">&#125;;</span><br><span class="line">&#125; <span class="comment">// namespace _bi</span></span><br><span class="line"> </span><br><span class="line"><span class="comment">// function pointers</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>&gt;</span></span><br><span class="line">_bi::bind_t&lt;R, R (*)(), _bi::list0&gt; bind2(R (*f)()) &#123;</span><br><span class="line">	<span class="function"><span class="keyword">typedef</span> <span class="title">R</span> <span class="params">(*F)</span><span class="params">()</span></span>;</span><br><span class="line">	<span class="keyword">typedef</span> _bi::list0 list_type;</span><br><span class="line">	<span class="keyword">return</span> _bi::<span class="keyword">bind_t</span>&lt;R, F, list_type&gt;(f, list_type());</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">B1</span>, <span class="title">class</span> <span class="title">A1</span>&gt;</span></span><br><span class="line">_bi::bind_t&lt;R, R (*)(B1), typename _bi::list_av_1&lt;A1&gt;::type&gt; bind2(R (*f)(B1),</span><br><span class="line">		A1 a1) &#123;</span><br><span class="line">	<span class="function"><span class="keyword">typedef</span> <span class="title">R</span> <span class="params">(*F)</span><span class="params">(B1)</span></span>;</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> _bi::list_av_1&lt;A1&gt;::type list_type;</span><br><span class="line">	<span class="keyword">return</span> _bi::<span class="keyword">bind_t</span>&lt;R, F, list_type&gt;(f, list_type(a1));</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">B1</span>, <span class="title">class</span> <span class="title">B2</span>, <span class="title">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt;</span></span><br><span class="line">_bi::bind_t&lt;R, R (*)(B1, B2), typename _bi::list_av_2&lt;A1, A2&gt;::type&gt; bind2(</span><br><span class="line">		R (*f)(B1, B2), A1 a1, A2 a2) &#123;</span><br><span class="line">	<span class="function"><span class="keyword">typedef</span> <span class="title">R</span> <span class="params">(*F)</span><span class="params">(B1, B2)</span></span>;</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> _bi::list_av_2&lt;A1, A2&gt;::type list_type;</span><br><span class="line">	<span class="keyword">return</span> _bi::<span class="keyword">bind_t</span>&lt;R, F, list_type&gt;(f, list_type(a1, a2));</span><br><span class="line">&#125;</span><br><span class="line">&#125; <span class="comment">// namespace boost</span></span><br><span class="line"> </span><br><span class="line"><span class="keyword">namespace</span> &#123;</span><br><span class="line">boost::arg&lt;<span class="number">1</span>&gt; _1;</span><br><span class="line">boost::arg&lt;<span class="number">2</span>&gt; _2;</span><br><span class="line">&#125;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span> <span class="comment">// #ifndef BOOST_BIND_BIND_HPP_INCLUDED__Mybind</span></span></span><br></pre></td></tr></table></figure>
+<p>main.cpp：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"myBind.h"</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">tow_arguments</span><span class="params">(<span class="keyword">int</span> i1, <span class="keyword">int</span> i2)</span> </span>&#123;</span><br><span class="line">	<span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; i1 &lt;&lt; i2 &lt;&lt; <span class="string">'\n'</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Test</span>&#123;</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">testClass</span><span class="params">(Test t, <span class="keyword">int</span> i)</span></span>&#123;</span><br><span class="line">	<span class="built_in">cout</span>&lt;&lt;<span class="string">"testClass,Test,int"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">int</span> i1 = <span class="number">1</span>, i2 = <span class="number">2</span>;</span><br><span class="line"> </span><br><span class="line">	(boost::bind2(&amp;tow_arguments, <span class="number">123</span>, _1))(i1, i2);</span><br><span class="line">	(boost::bind2(&amp;tow_arguments, _1, _2))(i1, i2);</span><br><span class="line">	(boost::bind2(&amp;tow_arguments, _2, _1))(i1, i2);</span><br><span class="line">	(boost::bind2(&amp;tow_arguments, _1, _1))(i1, i2);</span><br><span class="line"> </span><br><span class="line">	(boost::bind2(&amp;tow_arguments, <span class="number">222</span>, <span class="number">666</span>))(i1, i2);</span><br><span class="line"> </span><br><span class="line">	Test t;</span><br><span class="line">	(boost::bind2(&amp;testClass, _1, <span class="number">666</span>))(t, i2);</span><br><span class="line">	(boost::bind2(&amp;testClass, _1, <span class="number">666</span>))(t);</span><br><span class="line">	(boost::bind2(&amp;testClass, t, <span class="number">666</span>))();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在上面的代码中有很多个类，有几个是比较重要的any，storage，list和bind_t。</p>
+<p>先来看类any：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">int</span> I&gt; <span class="class"><span class="keyword">struct</span> <span class="title">arg</span> &#123;</span></span><br><span class="line">	arg() &#123;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">namespace</span> &#123;</span><br><span class="line">boost::arg&lt;<span class="number">1</span>&gt; _1;</span><br><span class="line">boost::arg&lt;<span class="number">2</span>&gt; _2;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在上面的代码中，我们看到了_1和_2，没错，所谓的占位符就是这么个东东，在匿名名字空间中定义的空的struct。<br>接下来是storage1,storage2类：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>&gt; <span class="title">struct</span> <span class="title">storage1</span> &#123;</span></span><br><span class="line">	<span class="function"><span class="keyword">explicit</span> <span class="title">storage1</span><span class="params">(A1 a1)</span> :</span></span><br><span class="line"><span class="function">			<span class="title">a1_</span><span class="params">(a1)</span> </span>&#123;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	A1 a1_;</span><br><span class="line">&#125;;</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt; <span class="title">struct</span> <span class="title">storage2</span>:</span> <span class="keyword">public</span> storage1&lt;A1&gt; &#123;</span><br><span class="line">	<span class="keyword">typedef</span> storage1&lt;A1&gt; inherited;</span><br><span class="line"> </span><br><span class="line">	storage2(A1 a1, A2 a2) :</span><br><span class="line">			storage1&lt;A1&gt;(a1), a2_(a2) &#123;</span><br><span class="line">	&#125;</span><br><span class="line"> </span><br><span class="line">	A2 a2_;</span><br><span class="line">&#125;;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>可以看出storage类只是简单的继承关系，<strong>实际上storage类是用来存储bind函数所传递进来的参数的值的</strong>，之所以采用继承而不用组合，其实有精妙的用处。</p>
+<p>接着看类list1和list2，<strong>它俩分别是storage1和storage2的子类（即参数是存放在listN类中的）：</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>&gt; <span class="title">class</span> <span class="title">list1</span>:</span> <span class="keyword">private</span> storage1&lt;A1&gt; &#123;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt; <span class="title">class</span> <span class="title">list2</span>:</span> <span class="keyword">private</span> storage2&lt;A1, A2&gt; &#123;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>仔细看代码，可以看到 <strong>list1和list2重载了operator [ ] 和operator () 函数</strong>，这些重载函数很关键，下面会谈到。</p>
+<p>再看类bind_t：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">F</span>, <span class="title">class</span> <span class="title">L</span>&gt; <span class="title">class</span> <span class="title">bind_t</span> &#123;</span></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">bind_t</span> this_type;</span><br><span class="line">	<span class="keyword">bind_t</span>(F f, L <span class="keyword">const</span> &amp; l) :</span><br><span class="line">			f_(f), l_(l) &#123;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">typedef</span> <span class="keyword">typename</span> result_traits&lt;R, F&gt;::type result_type;</span><br><span class="line"> </span><br><span class="line">	<span class="function">result_type <span class="title">operator</span><span class="params">()</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="built_in">cout</span>&lt;&lt;<span class="string">"bind_t::result_type operator()()"</span>&lt;&lt;<span class="built_in">endl</span>;</span><br><span class="line">		list0 a;</span><br><span class="line">		<span class="keyword">return</span> l_(type&lt;result_type&gt;(), f_, a, <span class="number">0</span>);</span><br><span class="line">	&#125;</span><br><span class="line">...</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">	F f_;   <span class="comment">//bind所绑定的函数</span></span><br><span class="line">	L l_;   <span class="comment">//实际是是listN类，存放bind传绑定的参数</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>同样，我们可以看到bind_t类重载了operator ()函数，实际上，bind_t类是bind函数的返回类型，bind_t实际上是一个stl意义上的funtor。<br>注意bind_t的两个成员F f_ 和 L l_，这里是关键之处。</p>
+<p>介绍完关键类，下面以main.cpp中下面部分代码为例，详细说明它的工作流程。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> i1 = <span class="number">1</span>, i2 = <span class="number">2</span>;</span><br><span class="line">(boost::bind2(&amp;tow_arguments, <span class="number">123</span>, _1))(i1, i2);</span><br></pre></td></tr></table></figure>
+<p>首先bind2函数返回一个bind_t类，这个类中的F成员，保存了tow_arguments函数指针，L成员（即list2类），保存了参数123 和 _1。<br>bind_t类采用的是以下的特化：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">R</span>, <span class="title">class</span> <span class="title">B1</span>, <span class="title">class</span> <span class="title">B2</span>, <span class="title">class</span> <span class="title">A1</span>, <span class="title">class</span> <span class="title">A2</span>&gt;</span></span><br><span class="line">_bi::bind_t&lt;R, R (*)(B1, B2), typename _bi::list_av_2&lt;A1, A2&gt;::type&gt; bind2(</span><br><span class="line">		R (*f)(B1, B2), A1 a1, A2 a2)</span><br></pre></td></tr></table></figure>
+<p>其中storage2类（list2的父类）和storage1类，分别采用的是以下的特化：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>, <span class="title">int</span> <span class="title">I</span>&gt; <span class="title">struct</span> <span class="title">storage2</span>&lt;A1, boost::arg&lt;I&gt; &gt; :</span> <span class="keyword">public</span> storage1&lt;A1&gt;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">A1</span>&gt; <span class="title">struct</span> <span class="title">storage1</span></span></span><br></pre></td></tr></table></figure>
+<p>（这里可以试下把123和_1互换位置，就能发现storage系列类用继承的精妙之处了，这里不展开了）</p>
+<p>当bind_t调用operator (i1, i2)函数时，即以下函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">template&lt;class A1, class A2&gt; result_type operator()(A1 &amp; a1, A2 &amp; a2) &#123;</span><br><span class="line">	list2&lt;A1 &amp;, A2 &amp;&gt; a(a1, a2);</span><br><span class="line">	<span class="keyword">return</span> l_(type&lt;result_type&gt;(), f_, a, <span class="number">0</span>); <span class="comment">//operator ()</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>再次生成一个list2，这个list2中保存的是i1 和 i2的值。接着调用<code>l_.operator() (type&lt;result_type&gt;(), f_, a, 0)</code>函数（还记得l_是什么东东不？）</p>
+<p><strong>l_实际是上刚才保存了123和<em>1的list2！而f</em>是由bind函数据绑定的函数的指针！</strong></p>
+<p>接着看list2的operator() 函数的实现：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">	template&lt;class R, class F, class A&gt; R operator()(type&lt;R&gt;, F &amp; f, A &amp; a,</span><br><span class="line">			<span class="keyword">long</span>) &#123;</span><br><span class="line">		<span class="keyword">return</span> f(a[base_type::a1_], a[base_type::a2_]);</span><br><span class="line"><span class="comment">//		return unwrapper&lt;F&gt;::unwrap(f, 0)(a[base_type::a1_], a[base_type::a2_]); //本是这句的，简化了下，无关要紧</span></span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到f是bind所绑定的函数的指针，即这里是调用了我们所绑定的函数。那么参数是从哪里来的？<br>注意A &amp;a实际上是保存了i1和i2的list2！，所以这里又调用了list2的operator[ ]函数！</p>
+<p>再看下list2的operator[] 函数的实现：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">A1 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">1</span>&gt;) <span class="keyword">const</span> &#123;</span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;1&gt;)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="keyword">return</span> base_type::a1_;</span><br><span class="line">&#125;</span><br><span class="line">A2 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">2</span>&gt;) <span class="keyword">const</span> &#123;</span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;2&gt;)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="keyword">return</span> base_type::a2_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">A1 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">1</span>&gt; (*)()) <span class="keyword">const</span> &#123;</span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;1&gt; (*)())"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="keyword">return</span> base_type::a1_;</span><br><span class="line">&#125;</span><br><span class="line">A2 <span class="keyword">operator</span>[](boost::arg&lt;<span class="number">2</span>&gt; (*)()) <span class="keyword">const</span> &#123;</span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"list2  A1 operator[](boost::arg&lt;2&gt; (*)())"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="keyword">return</span> base_type::a2_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt; <span class="title">T</span> &amp; <span class="title">operator</span>[](_<span class="title">bi</span>:</span>:value&lt;T&gt; &amp; v) <span class="keyword">const</span> &#123;</span><br><span class="line">	<span class="built_in">cout</span> &lt;&lt; <span class="string">"T &amp; operator[](_bi::value&lt;T&gt; &amp; v)"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">	<span class="keyword">return</span> v.get();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>貌似问题都解决了，其实这里还有一个关键要素，两个list2是怎么合并起来，组成正确的参数传递给函数f的？（第一个list2存放了123和_1，第二个list2存放了i1和i2）<br>传递给tow_arguments函数的参数实际是是（123, 1）！</p>
+<p>这里要仔细研究这些operator[]函数的实现，才能真正理解其过程。</p>
+<p><strong>注意，上面的的代码中bind2只能绑定普通的函数，不能绑定类成员函数，functor，智能指针等。不过其实区别不大，只是增加一些特化的代码而已。</strong></p>
+<p>还有一些const相关的函数删掉了。</p>
+<h2 id="后记"><a href="#后记" class="headerlink" title="后记"></a>后记</h2><p>从代码可以看到boost::bind和原生的函数指针相比，会损失效率（两次的寻址，函数参数的拷贝，有一些可能没有inline的函数调用）。</p>
+<p>不得不吐槽下boost的代码中那些神奇的宏，如果不是IDE有提示，我想真心弄不明白到底哪段是有意义的。。有时候还很神奇地include一部分代码进来（不是头文件，只是实现的一部分！）。</p>
+<p>不得不吐槽下模板编程中的const，为了一个函数，比如int sum(int a, int b); 就得写四个重载函数来对应不同参数是或者不是const的情况。所以大家可以想像bind最多支持9个参数，那么有多少种情况了。</p>
+<p>boost::bind的实现的确非常精巧，隐藏了很多复杂性。在《C++沉思录》中作者说到世界是复杂的，可以通过复杂性获取简单性。也许这个是对的，但是对于无数的后来的程序员总会有人想要看看黑盒子里到底是什么东东，结果总要花大量的时间才能理解，才能获得这种“简单性”。</p>
+<p>C++的模板代码中最痛苦的是到处都是typedef，一个typedef就把所有的类型信息都干掉了！而这东东又是必须的。</p>
+<p>也许C++给编程语言技术带来的最大贡献就是牛B的编译器了！</p>
+<p>C++11中貌似部分的支持concept，希望这个能简化模板编程。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/cpp/" rel="tag"># cpp</a>
+          
+            <a href="/tags/boost/" rel="tag"># boost</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/app-password/" rel="next" title="移动App该如何保存用户密码">
+                <i class="fa fa-chevron-left"></i> 移动App该如何保存用户密码
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/about-utf8/" rel="prev" title="扯谈下UTF-8">
+                扯谈下UTF-8 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#写在前面的话"><span class="nav-number">1.</span> <span class="nav-text">写在前面的话</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#标准库中的fouctor和bind1st的实现"><span class="nav-number">2.</span> <span class="nav-text">标准库中的fouctor和bind1st的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#解析简化版bind2"><span class="nav-number">3.</span> <span class="nav-text">解析简化版bind2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#后记"><span class="nav-number">4.</span> <span class="nav-text">后记</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

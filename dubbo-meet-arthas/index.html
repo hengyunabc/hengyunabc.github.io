@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="Apache Dubbo是Alibaba开源的高性能RPC框架，在国内有非常多的用户。  Github: https://github.com/apache/incubator-dubbo 文档：http://dubbo.incubator.apache.org/zh-cn/  Arthas是Alibaba开源的应用诊断利器，9月份开源以来，Github Star数三个月超过6000。  Gith">
+<meta name="keywords" content="java,arthas,dubbo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="当Dubbo遇上Arthas：排查问题的实践">
+<meta property="og:url" content="http://hengyunabc.github.io/dubbo-meet-arthas/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="Apache Dubbo是Alibaba开源的高性能RPC框架，在国内有非常多的用户。  Github: https://github.com/apache/incubator-dubbo 文档：http://dubbo.incubator.apache.org/zh-cn/  Arthas是Alibaba开源的应用诊断利器，9月份开源以来，Github Star数三个月超过6000。  Gith">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="当Dubbo遇上Arthas：排查问题的实践">
+<meta name="twitter:description" content="Apache Dubbo是Alibaba开源的高性能RPC框架，在国内有非常多的用户。  Github: https://github.com/apache/incubator-dubbo 文档：http://dubbo.incubator.apache.org/zh-cn/  Arthas是Alibaba开源的应用诊断利器，9月份开源以来，Github Star数三个月超过6000。  Gith">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/dubbo-meet-arthas/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>当Dubbo遇上Arthas：排查问题的实践 | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/dubbo-meet-arthas/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">当Dubbo遇上Arthas：排查问题的实践
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-12-05 20:58:28" itemprop="dateCreated datePublished" datetime="2018-12-05T20:58:28+00:00">2018-12-05</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>Apache Dubbo是Alibaba开源的高性能RPC框架，在国内有非常多的用户。</p>
+<ul>
+<li>Github: <a href="https://github.com/apache/incubator-dubbo" target="_blank" rel="noopener">https://github.com/apache/incubator-dubbo</a></li>
+<li>文档：<a href="http://dubbo.incubator.apache.org/zh-cn/" target="_blank" rel="noopener">http://dubbo.incubator.apache.org/zh-cn/</a></li>
+</ul>
+<p>Arthas是Alibaba开源的应用诊断利器，9月份开源以来，Github Star数三个月超过6000。</p>
+<ul>
+<li>Github: <a href="https://github.com/alibaba/arthas" target="_blank" rel="noopener">https://github.com/alibaba/arthas</a></li>
+<li>文档：<a href="https://alibaba.github.io/arthas/" target="_blank" rel="noopener">https://alibaba.github.io/arthas/</a></li>
+<li>Arthas开源交流QQ群: 916328269</li>
+<li>Arthas开源交流钉钉群: 21965291</li>
+</ul>
+<p>当Dubbo遇上Arthas，会碰撞出什么样的火花呢？下面来分享Arthas排查Dubbo问题的一些经验。</p>
+<h3 id="dubbo-arthas-demo"><a href="#dubbo-arthas-demo" class="headerlink" title="dubbo-arthas-demo"></a>dubbo-arthas-demo</h3><p>下面的排查分享基于这个<code>dubbo-arthas-demo</code>，非常简单的一个应用，浏览器请求从Spring MVC到Dubbo Client，再发送到Dubbo Server。</p>
+<p>Demo里有两个spring boot应用，可以先启动<code>server-demo</code>，再启动<code>client-demo</code>。</p>
+<ul>
+<li><a href="https://github.com/hengyunabc/dubbo-arthas-demo" target="_blank" rel="noopener">https://github.com/hengyunabc/dubbo-arthas-demo</a></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">/user/&#123;id&#125;    -&gt;   UserService    -&gt;   UserServiceImpl </span><br><span class="line"> Browser           Dubbo Client          Dubbo Server</span><br></pre></td></tr></table></figure>
+<p>Client端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">UserController</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@Reference</span>(version = <span class="string">"1.0.0"</span>)</span><br><span class="line">	<span class="keyword">private</span> UserService userService;</span><br><span class="line"></span><br><span class="line">	<span class="meta">@GetMapping</span>(<span class="string">"/user/&#123;id&#125;"</span>)</span><br><span class="line">	<span class="function"><span class="keyword">public</span> User <span class="title">findUserById</span><span class="params">(@PathVariable Integer id)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">return</span> userService.findUser(id);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<p>Server端：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span>(version = <span class="string">"1.0.0"</span>)</span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">UserServiceImpl</span> <span class="keyword">implements</span> <span class="title">UserService</span> </span>&#123;</span><br><span class="line">	<span class="meta">@Override</span></span><br><span class="line">	<span class="function"><span class="keyword">public</span> User <span class="title">findUser</span><span class="params">(<span class="keyword">int</span> id)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">if</span> (id &lt; <span class="number">1</span>) &#123;</span><br><span class="line">			<span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"user id &lt; 1, id: "</span> + id);</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">for</span> (User user : users) &#123;</span><br><span class="line">			<span class="keyword">if</span> (user.getId() == id) &#123;</span><br><span class="line">				<span class="keyword">return</span> user;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(<span class="string">"Can not find user, id: "</span> + id);</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="Arthas快速开始"><a href="#Arthas快速开始" class="headerlink" title="Arthas快速开始"></a>Arthas快速开始</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/install-detail.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/install-detail.html</a></li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ wget https://alibaba.github.io/arthas/arthas-boot.jar</span><br><span class="line">$ java -jar arthas-boot.jar</span><br></pre></td></tr></table></figure>
+<p>启动后，会列出所有的java进程，选择1，然后回车，就会连接上<code>ServerDemoApplication</code></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ java -jar arthas-boot.jar</span><br><span class="line">* [1]: 43523 ServerDemoApplication</span><br><span class="line">  [2]: 22342</span><br><span class="line">  [3]: 44108 ClientDemoApplication</span><br><span class="line">1</span><br><span class="line">[INFO] arthas home: /Users/hengyunabc/.arthas/lib/3.0.5/arthas</span><br><span class="line">[INFO] Try to attach process 43523</span><br><span class="line">[INFO] Attach process 43523 success.</span><br><span class="line">[INFO] arthas-client connect 127.0.0.1 3658</span><br><span class="line">  ,---.  ,------. ,--------.,--.  ,--.  ,---.   ,---.</span><br><span class="line"> /  O  \ |  .--. <span class="string">''</span>--.  .--<span class="string">'|  '</span>--<span class="string">'  | /  O  \ '</span>   .-<span class="string">'</span></span><br><span class="line"><span class="string">|  .-.  ||  '</span>--<span class="string">'.'</span>   |  |   |  .--.  ||  .-.  |`.  `-.</span><br><span class="line">|  | |  ||  |\  \    |  |   |  |  |  ||  | |  |.-<span class="string">'    |</span></span><br><span class="line"><span class="string">`--'</span> `--<span class="string">'`--'</span> <span class="string">'--'</span>   `--<span class="string">'   `--'</span>  `--<span class="string">'`--'</span> `--<span class="string">'`-----'</span></span><br><span class="line"></span><br><span class="line">wiki: https://alibaba.github.io/arthas</span><br><span class="line">version: 3.0.5</span><br><span class="line">pid: 43523</span><br><span class="line">time: 2018-12-05 16:23:52</span><br><span class="line"></span><br><span class="line">$</span><br></pre></td></tr></table></figure>
+<h3 id="Dubbo线上服务抛出异常，怎么获取调用参数？"><a href="#Dubbo线上服务抛出异常，怎么获取调用参数？" class="headerlink" title="Dubbo线上服务抛出异常，怎么获取调用参数？"></a>Dubbo线上服务抛出异常，怎么获取调用参数？</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/watch.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/watch.html</a></li>
+</ul>
+<p>当线上服务抛出异常时，最着急的是什么参数导致了抛异常？</p>
+<p>在demo里，访问 <a href="http://localhost:8080/user/0" target="_blank" rel="noopener">http://localhost:8080/user/0</a> ，<code>UserServiceImpl</code>就会抛出一个异常，因为user id不合法。</p>
+<p>在Arthas里执行 <code>watch com.example.UserService * -e -x 2 &#39;{params,throwExp}&#39;</code> ，然后再次访问，就可以看到watch命令把参数和异常都打印出来了。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ watch com.example.UserService * -e -x 2 &apos;&#123;params,throwExp&#125;&apos;</span><br><span class="line">Press Ctrl+C to abort.</span><br><span class="line">Affect(class-cnt:1 , method-cnt:4) cost in 230 ms.</span><br><span class="line">ts=2018-12-05 16:26:44; [cost=3.905523ms] result=@ArrayList[</span><br><span class="line">    @Object[][</span><br><span class="line">        @Integer[0],</span><br><span class="line">    ],</span><br><span class="line">    java.lang.IllegalArgumentException: user id &lt; 1, id: 0</span><br><span class="line">	at com.example.UserServiceImpl.findUser(UserServiceImpl.java:24)</span><br><span class="line">	at com.alibaba.dubbo.common.bytecode.Wrapper1.invokeMethod(Wrapper1.java)</span><br><span class="line">	at com.alibaba.dubbo.rpc.proxy.javassist.JavassistProxyFactory$1.doInvoke(JavassistProxyFactory.java:45)</span><br><span class="line">	at com.alibaba.dubbo.rpc.proxy.AbstractProxyInvoker.invoke(AbstractProxyInvoker.java:71)</span><br><span class="line">	at com.alibaba.dubbo.config.invoker.DelegateProviderMetaDataInvoker.invoke(DelegateProviderMetaDataInvoker.java:48)</span><br><span class="line">	at com.alibaba.dubbo.rpc.protocol.InvokerWrapper.invoke(InvokerWrapper.java:52)</span><br><span class="line">	at com.alibaba.dubbo.rpc.filter.ExceptionFilter.invoke(ExceptionFilter.java:61)</span><br></pre></td></tr></table></figure>
+<h3 id="怎样线上调试Dubbo服务代码"><a href="#怎样线上调试Dubbo服务代码" class="headerlink" title="怎样线上调试Dubbo服务代码?"></a>怎样线上调试Dubbo服务代码?</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/redefine.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/redefine.html</a></li>
+</ul>
+<p>在本地开发时，可能会用到热部署工具，直接改代码，不需要重启应用。但是在线上环境，有没有办法直接动态调试代码？比如增加日志。</p>
+<p>在Arthas里，可以通过<code>redefine</code>命令来达到线上不重启，动态更新代码的效果。</p>
+<p>比如我们修改下<code>UserServiceImpl</code>，用<code>System.out</code>打印出具体的<code>User</code>对象来：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> User <span class="title">findUser</span><span class="params">(<span class="keyword">int</span> id)</span> </span>&#123;</span><br><span class="line">	<span class="keyword">if</span> (id &lt; <span class="number">1</span>) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"user id &lt; 1, id: "</span> + id);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> (User user : users) &#123;</span><br><span class="line">		<span class="keyword">if</span> (user.getId() == id) &#123;</span><br><span class="line">			System.out.println(user);</span><br><span class="line">			<span class="keyword">return</span> user;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">throw</span> <span class="keyword">new</span> RuntimeException(<span class="string">"Can not find user, id: "</span> + id);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>本地编绎后，把<code>server-demo/target/classes/com/example/UserServiceImpl.class</code>传到线上服务器，然后用<code>redefine</code>命令来更新代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ redefine -p /tmp/UserServiceImpl.class</span><br><span class="line">redefine success, size: 1</span><br></pre></td></tr></table></figure>
+<p>这样子更新成功之后，访问 <a href="http://localhost:8080/user/1" target="_blank" rel="noopener">http://localhost:8080/user/1</a> ，在<code>ServerDemoApplication</code>的控制台里就可以看到打印出了user信息。</p>
+<h3 id="怎样动态修改Dubbo的logger级别"><a href="#怎样动态修改Dubbo的logger级别" class="headerlink" title="怎样动态修改Dubbo的logger级别?"></a>怎样动态修改Dubbo的logger级别?</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/ognl.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/ognl.html</a></li>
+<li><a href="https://alibaba.github.io/arthas/sc.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/sc.html</a></li>
+<li><a href="https://commons.apache.org/proper/commons-ognl/language-guide.html" target="_blank" rel="noopener">https://commons.apache.org/proper/commons-ognl/language-guide.html</a></li>
+</ul>
+<p>在排查问题时，需要查看到更多的信息，如果可以把logger级别修改为<code>DEBUG</code>，就非常有帮助。</p>
+<p><code>ognl</code>是apache开源的一个轻量级表达式引擎。下面通过Arthas里的<code>ognl</code>命令来动态修改logger级别。</p>
+<p>首先获取Dubbo里<code>TraceFilter</code>的一个logger对象，看下它的实现类，可以发现是log4j。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ognl <span class="string">'@com.alibaba.dubbo.rpc.protocol.dubbo.filter.TraceFilter@logger.logger'</span></span><br><span class="line">@Log4jLogger[</span><br><span class="line">    FQCN=@String[com.alibaba.dubbo.common.logger.support.FailsafeLogger],</span><br><span class="line">    logger=@Logger[org.apache.log4j.Logger@2f19bdcf],</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<p>再用<code>sc</code>命令来查看具体从哪个jar包里加载的：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">$ sc -d org.apache.log4j.Logger</span><br><span class="line"> class-info        org.apache.log4j.Logger</span><br><span class="line"> code-source       /Users/hengyunabc/.m2/repository/org/slf4j/log4j-over-slf4j/1.7.25/log4j-over-slf4j-1.7.25.jar</span><br><span class="line"> name              org.apache.log4j.Logger</span><br><span class="line"> isInterface       <span class="literal">false</span></span><br><span class="line"> isAnnotation      <span class="literal">false</span></span><br><span class="line"> isEnum            <span class="literal">false</span></span><br><span class="line"> isAnonymousClass  <span class="literal">false</span></span><br><span class="line"> isArray           <span class="literal">false</span></span><br><span class="line"> isLocalClass      <span class="literal">false</span></span><br><span class="line"> isMemberClass     <span class="literal">false</span></span><br><span class="line"> isPrimitive       <span class="literal">false</span></span><br><span class="line"> isSynthetic       <span class="literal">false</span></span><br><span class="line"> simple-name       Logger</span><br><span class="line"> modifier          public</span><br><span class="line"> annotation</span><br><span class="line"> interfaces</span><br><span class="line"> super-class       +-org.apache.log4j.Category</span><br><span class="line">                     +-java.lang.Object</span><br><span class="line"> class-loader      +-sun.misc.Launcher<span class="variable">$AppClassLoader</span>@5c647e05</span><br><span class="line">                     +-sun.misc.Launcher<span class="variable">$ExtClassLoader</span>@59878d35</span><br><span class="line"> classLoaderHash   5c647e05</span><br><span class="line"></span><br><span class="line">Affect(row-cnt:1) cost <span class="keyword">in</span> 126 ms.</span><br></pre></td></tr></table></figure>
+<p><strong>可以看到log4j是通过slf4j代理的。</strong></p>
+<p>那么通过<code>org.slf4j.LoggerFactory</code>获取<code>root</code> logger，再修改它的level：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ ognl &apos;@org.slf4j.LoggerFactory@getLogger(&quot;root&quot;).setLevel(@ch.qos.logback.classic.Level@DEBUG)&apos;</span><br><span class="line">null</span><br><span class="line">$ ognl &apos;@org.slf4j.LoggerFactory@getLogger(&quot;root&quot;).getLevel().toString()&apos;</span><br><span class="line">@String[DEBUG]</span><br></pre></td></tr></table></figure>
+<p>可以看到修改之后，<code>root</code> logger的level变为<code>DEBUG</code>。</p>
+<h3 id="怎样减少测试小姐姐重复发请求的麻烦"><a href="#怎样减少测试小姐姐重复发请求的麻烦" class="headerlink" title="怎样减少测试小姐姐重复发请求的麻烦?"></a>怎样减少测试小姐姐重复发请求的麻烦?</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/tt.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/tt.html</a></li>
+</ul>
+<p>在平时开发时，可能需要测试小姐姐发请求过来联调，但是我们在debug时，可能不小心直接跳过去了。这样子就尴尬了，需要测试小姐姐再发请求过来。</p>
+<p>Arthas里提供了<code>tt</code>命令，可以减少这种麻烦，可以直接重放请求。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ tt -t com.example.UserServiceImpl findUser</span><br><span class="line">Press Ctrl+C to abort.</span><br><span class="line">Affect(class-cnt:1 , method-cnt:1) cost <span class="keyword">in</span> 145 ms.</span><br><span class="line"> INDEX      TIMESTAMP              COST(ms)      IS-RET     IS-EXP    OBJECT       CLASS              METHOD</span><br><span class="line">----------------------------------------------------------------------------------------------------------------</span><br><span class="line"> 1000       2018-12-05 17:47:52    1.56523       <span class="literal">true</span>       <span class="literal">false</span>     0x3233483    UserServiceImpl    findUser</span><br><span class="line"> 1001       2018-12-05 17:48:03    0.286176      <span class="literal">false</span>      <span class="literal">true</span>      0x3233483    UserServiceImpl    findUser</span><br><span class="line"> 1002       2018-12-05 17:48:11    90.324335     <span class="literal">true</span>       <span class="literal">false</span>     0x3233483    UserServiceImpl    findUser</span><br></pre></td></tr></table></figure>
+<p>上面的<code>tt -t</code>命令捕获到了3个请求。然后通过<code>tt --play</code>可以重放请求：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">$ tt --play -i 1000</span><br><span class="line"> RE-INDEX       1000</span><br><span class="line"> GMT-REPLAY     2018-12-05 17:55:50</span><br><span class="line"> OBJECT         0x3233483</span><br><span class="line"> CLASS          com.example.UserServiceImpl</span><br><span class="line"> METHOD         findUser</span><br><span class="line"> PARAMETERS[0]  @Integer[1]</span><br><span class="line"> IS-RETURN      <span class="literal">true</span></span><br><span class="line"> IS-EXCEPTION   <span class="literal">false</span></span><br><span class="line"> RETURN-OBJ     @User[</span><br><span class="line">                    id=@Integer[1],</span><br><span class="line">                    name=@String[Deanna Borer],</span><br><span class="line">                ]</span><br><span class="line">Time fragment[1000] successfully replayed.</span><br><span class="line">Affect(row-cnt:1) cost <span class="keyword">in</span> 4 ms.</span><br></pre></td></tr></table></figure>
+<h3 id="Dubbo运行时有哪些Filter-耗时是多少"><a href="#Dubbo运行时有哪些Filter-耗时是多少" class="headerlink" title="Dubbo运行时有哪些Filter? 耗时是多少?"></a>Dubbo运行时有哪些Filter? 耗时是多少?</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/trace.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/trace.html</a></li>
+</ul>
+<p>Dubbo运行时会加载很多的Filter，那么一个请求会经过哪些Filter处理，Filter里的耗时又是多少呢？</p>
+<p>通过Arthas的<code>trace</code>命令，可以很方便地知道Filter的信息，可以看到详细的调用栈和耗时。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ trace com.alibaba.dubbo.rpc.Filter *</span><br><span class="line">Press Ctrl+C to abort.</span><br><span class="line">Affect(class-cnt:19 , method-cnt:59) cost <span class="keyword">in</span> 1441 ms.</span><br><span class="line">`---ts=2018-12-05 19:07:26;thread_name=DubboServerHandler-30.5.125.152:20880-thread-10;id=3e;is_daemon=<span class="literal">true</span>;priority=5;TCCL=sun.misc.Launcher<span class="variable">$AppClassLoader</span>@5c647e05</span><br><span class="line">    `---[8.435844ms] com.alibaba.dubbo.rpc.filter.EchoFilter:invoke()</span><br><span class="line">        +---[0.124572ms] com.alibaba.dubbo.rpc.Invocation:getMethodName()</span><br><span class="line">        +---[0.065123ms] java.lang.String:equals()</span><br><span class="line">        `---[7.762928ms] com.alibaba.dubbo.rpc.Invoker:invoke()</span><br><span class="line">            `---[7.494124ms] com.alibaba.dubbo.rpc.filter.ClassLoaderFilter:invoke()</span><br><span class="line">                +---[min=0.00355ms,max=0.049922ms,total=0.057637ms,count=3] java.lang.Thread:currentThread()</span><br><span class="line">                +---[0.0126ms] java.lang.Thread:getContextClassLoader()</span><br><span class="line">                +---[0.02188ms] com.alibaba.dubbo.rpc.Invoker:getInterface()</span><br><span class="line">                +---[0.004115ms] java.lang.Class:getClassLoader()</span><br><span class="line">                +---[min=0.003906ms,max=0.014058ms,total=0.017964ms,count=2] java.lang.Thread:setContextClassLoader()</span><br><span class="line">                `---[7.033486ms] com.alibaba.dubbo.rpc.Invoker:invoke()</span><br><span class="line">                    `---[6.869488ms] com.alibaba.dubbo.rpc.filter.GenericFilter:invoke()</span><br><span class="line">                        +---[0.01481ms] com.alibaba.dubbo.rpc.Invocation:getMethodName()</span><br></pre></td></tr></table></figure>
+<h3 id="Dubbo动态代理是怎样实现的"><a href="#Dubbo动态代理是怎样实现的" class="headerlink" title="Dubbo动态代理是怎样实现的?"></a>Dubbo动态代理是怎样实现的?</h3><ul>
+<li><a href="https://alibaba.github.io/arthas/jad.html" target="_blank" rel="noopener">https://alibaba.github.io/arthas/jad.html</a></li>
+<li>com.alibaba.dubbo.common.bytecode.Wrapper</li>
+</ul>
+<p>通过Arthas的<code>jad</code>命令，可以看到Dubbo通过javaassist动态生成的Wrappr类的代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">$ jad com.alibaba.dubbo.common.bytecode.Wrapper1</span><br><span class="line"></span><br><span class="line">ClassLoader:</span><br><span class="line">+-sun.misc.Launcher$AppClassLoader@<span class="number">5</span>c647e05</span><br><span class="line">  +-sun.misc.Launcher$ExtClassLoader@<span class="number">59878</span>d35</span><br><span class="line"></span><br><span class="line">Location:</span><br><span class="line">/Users/hengyunabc/.m2/repository/com/alibaba/dubbo/<span class="number">2.5</span><span class="number">.10</span>/dubbo-<span class="number">2.5</span><span class="number">.10</span>.jar</span><br><span class="line"></span><br><span class="line"><span class="keyword">package</span> com.alibaba.dubbo.common.bytecode;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Wrapper1</span></span></span><br><span class="line"><span class="class"><span class="keyword">extends</span> <span class="title">Wrapper</span></span></span><br><span class="line"><span class="class"><span class="keyword">implements</span> <span class="title">ClassGenerator</span>.<span class="title">DC</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Object <span class="title">invokeMethod</span><span class="params">(Object object, String string, Class[] arrclass, Object[] arrobject)</span> <span class="keyword">throws</span> InvocationTargetException </span>&#123;</span><br><span class="line">        UserServiceImpl userServiceImpl;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            userServiceImpl = (UserServiceImpl)object;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">catch</span> (Throwable throwable) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(throwable);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="string">"findUser"</span>.equals(string) &amp;&amp; arrclass.length == <span class="number">1</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> userServiceImpl.findUser(((Number)arrobject[<span class="number">0</span>]).intValue());</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (<span class="string">"listUsers"</span>.equals(string) &amp;&amp; arrclass.length == <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> userServiceImpl.listUsers();</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (<span class="string">"findUserByName"</span>.equals(string) &amp;&amp; arrclass.length == <span class="number">1</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> userServiceImpl.findUserByName((String)arrobject[<span class="number">0</span>]);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+<h3 id="获取Spring-context"><a href="#获取Spring-context" class="headerlink" title="获取Spring context"></a>获取Spring context</h3><p>除了上面介绍的一些排查技巧，下面分享一个获取Spring Context，然后“为所欲为”的例子。</p>
+<p>在Dubbo里有一个扩展<code>com.alibaba.dubbo.config.spring.extension.SpringExtensionFactory</code>，把Spring Context保存到了里面。<br>因此，我们可以通过<code>ognl</code>命令获取到。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ognl <span class="string">'#context=@com.alibaba.dubbo.config.spring.extension.SpringExtensionFactory@contexts.iterator.next, #context.getBean("userServiceImpl").findUser(1)'</span></span><br><span class="line">@User[</span><br><span class="line">    id=@Integer[1],</span><br><span class="line">    name=@String[Deanna Borer],</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+<ul>
+<li><a href="mailto:`SpringExtensionFactory@contexts.iterator.next" target="_blank" rel="noopener">`SpringExtensionFactory@contexts.iterator.next</a><code>获取到</code>SpringExtensionFactory`里保存的spring context对象</li>
+<li><code>#context.getBean(&quot;userServiceImpl&quot;).findUser(1)</code> 获取到<code>userServiceImpl</code>再执行一次调用</li>
+</ul>
+<p>只要充分发挥想像力，组合Arthas里的各种命令，可以发挥出神奇的效果。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本篇文章来自杭州Dubbo Meetup的分享《当DUBBO遇上Arthas - 排查问题的实践》，希望对大家线上排查Dubbo问题有帮助。</p>
+<p>分享的PDF可以在 <a href="https://github.com/alibaba/arthas/issues/327" target="_blank" rel="noopener">https://github.com/alibaba/arthas/issues/327</a> 里下载。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/java/" rel="tag"># java</a>
+          
+            <a href="/tags/arthas/" rel="tag"># arthas</a>
+          
+            <a href="/tags/dubbo/" rel="tag"># dubbo</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/arthas-3.0.5/" rel="next" title="Alibaba应用诊断利器Arthas 3.0.5版本发布：提升全平台用户体验">
+                <i class="fa fa-chevron-left"></i> Alibaba应用诊断利器Arthas 3.0.5版本发布：提升全平台用户体验
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/reading-notes-2018/" rel="prev" title="2018读书总结">
+                2018读书总结 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#dubbo-arthas-demo"><span class="nav-number">1.</span> <span class="nav-text">dubbo-arthas-demo</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Arthas快速开始"><span class="nav-number">2.</span> <span class="nav-text">Arthas快速开始</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dubbo线上服务抛出异常，怎么获取调用参数？"><span class="nav-number">3.</span> <span class="nav-text">Dubbo线上服务抛出异常，怎么获取调用参数？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#怎样线上调试Dubbo服务代码"><span class="nav-number">4.</span> <span class="nav-text">怎样线上调试Dubbo服务代码?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#怎样动态修改Dubbo的logger级别"><span class="nav-number">5.</span> <span class="nav-text">怎样动态修改Dubbo的logger级别?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#怎样减少测试小姐姐重复发请求的麻烦"><span class="nav-number">6.</span> <span class="nav-text">怎样减少测试小姐姐重复发请求的麻烦?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dubbo运行时有哪些Filter-耗时是多少"><span class="nav-number">7.</span> <span class="nav-text">Dubbo运行时有哪些Filter? 耗时是多少?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Dubbo动态代理是怎样实现的"><span class="nav-number">8.</span> <span class="nav-text">Dubbo动态代理是怎样实现的?</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#获取Spring-context"><span class="nav-number">9.</span> <span class="nav-text">获取Spring context</span></a></li></ol><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number"></span> <span class="nav-text">总结</span></a></li></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

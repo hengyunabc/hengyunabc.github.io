@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.7.0" color="#222">
+
+
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言在整理Java LockSupport.park()的东东，看到了个”Spurious wakeup”，重新梳理下。 首先来个《UNIX环境高级编程》里的例子： 123456789101112131415161718192021222324252627#include &amp;lt;pthread.h&amp;gt;struct msg &amp;#123;	struct msg *m_next;	/* ... m">
+<meta name="keywords" content="cpp,cpp11,posix,condition">
+<meta property="og:type" content="article">
+<meta property="og:title" content="并行编程之条件变量（posix condition variables）">
+<meta property="og:url" content="http://hengyunabc.github.io/posix-condition-variables/index.html">
+<meta property="og:site_name" content="横云断岭的专栏">
+<meta property="og:description" content="前言在整理Java LockSupport.park()的东东，看到了个”Spurious wakeup”，重新梳理下。 首先来个《UNIX环境高级编程》里的例子： 123456789101112131415161718192021222324252627#include &amp;lt;pthread.h&amp;gt;struct msg &amp;#123;	struct msg *m_next;	/* ... m">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-03-02T17:57:00.251Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="并行编程之条件变量（posix condition variables）">
+<meta name="twitter:description" content="前言在整理Java LockSupport.park()的东东，看到了个”Spurious wakeup”，重新梳理下。 首先来个《UNIX环境高级编程》里的例子： 123456789101112131415161718192021222324252627#include &amp;lt;pthread.h&amp;gt;struct msg &amp;#123;	struct msg *m_next;	/* ... m">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="横云断岭的专栏" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="http://hengyunabc.github.io/posix-condition-variables/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>并行编程之条件变量（posix condition variables） | 横云断岭的专栏</title>
+  
+
+
+
+
+
+
+  <script>
+    var _hmt = _hmt || [];
+    (function() {
+      var hm = document.createElement("script");
+      hm.src = "https://hm.baidu.com/hm.js?5a7a572817c66cc21c289fdae273d6aa";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(hm, s);
+    })();
+  </script>
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">横云断岭的专栏</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+<script data-ad-client="ca-pub-7158916156928962" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://hengyunabc.github.io/posix-condition-variables/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="横云断岭/hengyunabc">
+      <meta itemprop="description" content="日落黄金台金黄落日">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="横云断岭的专栏">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">并行编程之条件变量（posix condition variables）
+
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2014-06-02 19:58:28" itemprop="dateCreated datePublished" datetime="2014-06-02T19:58:28+00:00">2014-06-02</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2020-03-02 17:57:00" itemprop="dateModified" datetime="2020-03-02T17:57:00+00:00">2020-03-02</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/技术/" itemprop="url" rel="index"><span itemprop="name">技术</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在整理Java LockSupport.park()的东东，看到了个”Spurious wakeup”，重新梳理下。</p>
+<p>首先来个《UNIX环境高级编程》里的例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">msg</span> &#123;</span></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">msg</span> *<span class="title">m_next</span>;</span></span><br><span class="line">	<span class="comment">/* ... more stuff here ... */</span></span><br><span class="line">&#125;;</span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">msg</span> *<span class="title">workq</span>;</span></span><br><span class="line"><span class="keyword">pthread_cond_t</span> qready = PTHREAD_COND_INITIALIZER;</span><br><span class="line"><span class="keyword">pthread_mutex_t</span> qlock = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">process_msg</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">msg</span> *<span class="title">mp</span>;</span></span><br><span class="line">	<span class="keyword">for</span> (;;) &#123;</span><br><span class="line">		pthread_mutex_lock(&amp;qlock);</span><br><span class="line">		<span class="keyword">while</span> (workq == <span class="literal">NULL</span>)</span><br><span class="line">			pthread_cond_wait(&amp;qready, &amp;qlock);</span><br><span class="line">		mp = workq;</span><br><span class="line">		workq = mp-&gt;m_next;</span><br><span class="line">		pthread_mutex_unlock(&amp;qlock);</span><br><span class="line">		<span class="comment">/* now process the message mp */</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">enqueue_msg</span><span class="params">(struct msg *mp)</span> </span>&#123;</span><br><span class="line">	pthread_mutex_lock(&amp;qlock);</span><br><span class="line">	mp-&gt;m_next = workq;</span><br><span class="line">	workq = mp;</span><br><span class="line">	pthread_mutex_unlock(&amp;qlock);</span><br><span class="line">	pthread_cond_signal(&amp;qready);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>一个简单的消息生产者和消费者的代码。它们之间用condition同步。<br>这个代码最容易让人搞混的是process_msg函数里的pthread_mutex_lock 和 pthread_mutex_unlock 是一对函数调用，前面加锁，后面解锁。的确，是加锁解锁，但是它们两不是一对的。它们的另一半在pthread_cond_wait函数里。</p>
+<p>pthread_cond_wait函数可以认为它做了三件事：</p>
+<ul>
+<li>把自身线程放到condition的等待队列里，把mutex解锁；</li>
+<li>等待被唤醒（当其它线程调用pthread_cond_signal或者pthread_cond_broadcast时）；</li>
+<li>被唤醒之后，对metex加锁，再返回。</li>
+</ul>
+<p>mutex和condition实际上是绑定在一起的，一个condition只能对应一个mutex。在Java的代码里，Condition对象只能通过lock.newCondition()的函数来获取。</p>
+<h2 id="Spurious-wakeup"><a href="#Spurious-wakeup" class="headerlink" title="Spurious wakeup"></a>Spurious wakeup</h2><p>所谓的spurious wakeup，指的是一个线程调用pthread_cond_signal()，却有可能不止一个线程被唤醒。为什么会出现这种情况？wiki和其它的一些文档都只是说在多核的情况下，简化实现允许出现这种spurious wakeup。。</p>
+<p>在man文档里给出了一个可能的实现，然后解析为什么会出现。</p>
+<p>假定有三个线程，线程A正在执行pthread_cond_wait，线程B正在执行pthread_cond_signal，线程C正准备执行pthread_cond_wait函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">pthread_cond_wait(mutex, cond):</span><br><span class="line">    value = cond-&gt;value; <span class="comment">/* 1 */</span></span><br><span class="line">    pthread_mutex_unlock(mutex); <span class="comment">/* 2 */</span></span><br><span class="line">    pthread_mutex_lock(cond-&gt;mutex); <span class="comment">/* 10 */</span></span><br><span class="line">    <span class="keyword">if</span> (value == cond-&gt;value) &#123; <span class="comment">/* 11 */</span></span><br><span class="line">        me-&gt;next_cond = cond-&gt;waiter;</span><br><span class="line">        cond-&gt;waiter = me;</span><br><span class="line">        pthread_mutex_unlock(cond-&gt;mutex);</span><br><span class="line">        unable_to_run(me);</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        pthread_mutex_unlock(cond-&gt;mutex); <span class="comment">/* 12 */</span></span><br><span class="line">    pthread_mutex_lock(mutex); <span class="comment">/* 13 */</span></span><br><span class="line"> </span><br><span class="line"> </span><br><span class="line">pthread_cond_signal(cond):</span><br><span class="line">    pthread_mutex_lock(cond-&gt;mutex); <span class="comment">/* 3 */</span></span><br><span class="line">    cond-&gt;value++; <span class="comment">/* 4 */</span></span><br><span class="line">    <span class="keyword">if</span> (cond-&gt;waiter) &#123; <span class="comment">/* 5 */</span></span><br><span class="line">        sleeper = cond-&gt;waiter; <span class="comment">/* 6 */</span></span><br><span class="line">        cond-&gt;waiter = sleeper-&gt;next_cond; <span class="comment">/* 7 */</span></span><br><span class="line">        able_to_run(sleeper); <span class="comment">/* 8 */</span></span><br><span class="line">    &#125;</span><br><span class="line">    pthread_mutex_unlock(cond-&gt;mutex); <span class="comment">/* 9 */</span></span><br></pre></td></tr></table></figure>
+<p>线程A执行了第1,2步，这时它释放了mutex，然后线程B拿到了这个mutext，并且pthread_cond_signal函数时执行并返回了。于是线程B就是一个所谓的“spurious wakeup”。</p>
+<p>为什么pthread_cond_wait函数里一进入，就释放了mutex？没有找到什么解析。。</p>
+<p>查看了glibc的源代码，大概可以看出上面的一些影子，但是太复杂了，也没有搞明白为什么。。</p>
+<ul>
+<li>/build/buildd/eglibc-2.19/nptl/pthread_cond_wait.c</li>
+<li>/build/buildd/eglibc-2.19/nptl/pthread_cond_signal.c</li>
+</ul>
+<p>不过从上面的解析，可以发现《UNIX高级编程》里的说明是错误的（可能是因为太久了）。</p>
+<blockquote>
+<p>The  caller passes it locked to the function, which then atomically places the calling thread on the list of threads waiting for the condition and unlocks the mutex. </p>
+</blockquote>
+<p>上面的伪代码，一进入pthread_cond_wait函数就释放了mutex，明显和书里的不一样。</p>
+<h2 id="wait-morphing优化"><a href="#wait-morphing优化" class="headerlink" title="wait morphing优化"></a>wait morphing优化</h2><p>在《UNIX环境高级编程》的示例代码里，是先调用pthread_mutex_unlock，再调用pthread_cond_signal。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">enqueue_msg</span><span class="params">(struct msg *mp)</span> </span>&#123;</span><br><span class="line">	pthread_mutex_lock(&amp;qlock);</span><br><span class="line">	mp-&gt;m_next = workq;</span><br><span class="line">	workq = mp;</span><br><span class="line">	pthread_mutex_unlock(&amp;qlock);</span><br><span class="line">	pthread_cond_signal(&amp;qready);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>有的地方给出的是先调用pthread_cond_signal，再调用pthread_mutex_unlock：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">enqueue_msg</span><span class="params">(struct msg *mp)</span> </span>&#123;</span><br><span class="line">	pthread_mutex_lock(&amp;qlock);</span><br><span class="line">	mp-&gt;m_next = workq;</span><br><span class="line">	workq = mp;</span><br><span class="line">	pthread_cond_signal(&amp;qready);</span><br><span class="line">	pthread_mutex_unlock(&amp;qlock);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>先unlock再signal，这有个好处，就是调用enqueue_msg的线程可以再次参与mutex的竞争中，这样意味着可以连续放入多个消息，这个可能会提高效率。类似Java里ReentrantLock的非公平模式。<br>网上有些文章说，先singal再unlock，有可能会出现一种情况是被singal唤醒的线程会因为不能马上拿到mutex（还没被释放），从而会再次休眠，这样影响了效率。从而会有一个叫“wait morphing”优化，就是如果线程被唤醒但是不能获取到mutex,则线程被转移(morphing)到mutex的等待队列里。</p>
+<p>但是我查看了下glibc的源代码，貌似没有发现有这种“wait morphing”优化。</p>
+<p>man文档里提到：</p>
+<blockquote>
+<p>The pthread_cond_broadcast() or pthread_cond_signal() functions may be called by a thread whether or not it currently owns the mutex that  threads  calling  pthread_cond_wait()  or pthread_cond_timedwait() have associated with the condition variable during their waits; however, if predictable scheduling behavior is required, then that mutex shall be locked by the thread calling pthread_cond_broadcast() or pthread_cond_signal().</p>
+</blockquote>
+<p>可见在调用singal之前，可以不持有mutex，除非是“predictable scheduling”，可预测的调度行为。这种可能是实时系统才有这种严格的要求。</p>
+<h2 id="为什么要用while循环来判断条件是否成立？"><a href="#为什么要用while循环来判断条件是否成立？" class="headerlink" title="为什么要用while循环来判断条件是否成立？"></a>为什么要用while循环来判断条件是否成立？</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> (workq == <span class="literal">NULL</span>)</span><br><span class="line">	pthread_cond_wait(&amp;qready, &amp;qlock);</span><br></pre></td></tr></table></figure>
+<p>而不用if来判断？</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (workq == <span class="literal">NULL</span>)</span><br><span class="line">	pthread_cond_wait(&amp;qready, &amp;qlock);</span><br></pre></td></tr></table></figure>
+<p><strong>一个原因是spurious wakeup，但即使没有spurious wakeup，也是要用While来判断的。</strong></p>
+<p>比如线程A，线程B在pthread_cond_wait函数中等待，然后线程C把消息放到队列里，再调用pthread_cond_broadcast，然后线程A先获取到mutex，处理完消息完后，这时workq就变成NULL了。这时线程B才获取到mutex，那么这时实际上是没有资源供线程B使用的。所以从pthread_cond_wait函数返回之后，还是要判断条件是否成功，如果成立，再进行处理。</p>
+<h2 id="pthread-cond-signal和pthread-cond-broadcast"><a href="#pthread-cond-signal和pthread-cond-broadcast" class="headerlink" title="pthread_cond_signal和pthread_cond_broadcast"></a>pthread_cond_signal和pthread_cond_broadcast</h2><p>在这篇文章里，<a href="http://www.cppblog.com/Solstice/archive/2013/09/09/203094.html" target="_blank" rel="noopener">http://www.cppblog.com/Solstice/archive/2013/09/09/203094.html</a></p>
+<p>给出的示例代码7里，认为调用pthread_cond_broadcast来唤醒所有的线程是比较好的写法。但是我认为pthread_cond_signal和pthread_cond_broadcast是两个不同东东，不能简单合并在同一个函数调用。只唤醒一个效率和唤醒全部等待线程的效率显然不能等同。典型的condition是用CLH或者MCS来实现的，要通知所有的线程，则要历遍链表，显然效率降低。另外，C++11里的condition_variable也提供了notify_one函数。</p>
+<p><a href="http://en.cppreference.com/w/cpp/thread/condition_variable/notify_one" target="_blank" rel="noopener">http://en.cppreference.com/w/cpp/thread/condition_variable/notify_one</a></p>
+<h2 id="mutex，condition是不是公平-fair-的？"><a href="#mutex，condition是不是公平-fair-的？" class="headerlink" title="mutex，condition是不是公平(fair)的？"></a>mutex，condition是不是公平(fair)的？</h2><p>这个在参考文档里没有说明，在网上找了些资料，也没有什么明确的答案。</p>
+<p>我写了个代码测试，发现mutex是公平的。condition的测试结果也是差不多。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="keyword">pthread_mutex_t</span> lock = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">volatile</span> <span class="keyword">int</span> mutexCount = <span class="number">0</span>;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">mutexFairTest</span><span class="params">()</span></span>&#123;</span><br><span class="line">	<span class="keyword">int</span> localCount = <span class="number">0</span>;</span><br><span class="line">	<span class="keyword">while</span>(<span class="number">1</span>)&#123;</span><br><span class="line">		pthread_mutex_lock(&amp;lock);</span><br><span class="line">		__sync_fetch_and_add(&amp;mutexCount, <span class="number">1</span>);</span><br><span class="line">		localCount += <span class="number">1</span>;</span><br><span class="line">		<span class="keyword">if</span>(mutexCount &gt; <span class="number">100000000</span>)&#123;</span><br><span class="line">			<span class="keyword">break</span>;</span><br><span class="line">		&#125;</span><br><span class="line">		pthread_mutex_unlock(&amp;lock);</span><br><span class="line">	&#125;</span><br><span class="line">	pthread_mutex_unlock(&amp;lock);</span><br><span class="line">	<span class="built_in">printf</span>(<span class="string">"localCount:%d\n"</span>, localCount);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	pthread_mutex_lock(&amp;lock);</span><br><span class="line">	pthread_create(<span class="keyword">new</span> <span class="keyword">pthread_t</span>, <span class="literal">NULL</span>, (<span class="keyword">void</span> * (*)(<span class="keyword">void</span> *))&amp;mutexFairTest, <span class="literal">NULL</span>);</span><br><span class="line">	pthread_create(<span class="keyword">new</span> <span class="keyword">pthread_t</span>, <span class="literal">NULL</span>, (<span class="keyword">void</span> * (*)(<span class="keyword">void</span> *))&amp;mutexFairTest, <span class="literal">NULL</span>);</span><br><span class="line">	pthread_create(<span class="keyword">new</span> <span class="keyword">pthread_t</span>, <span class="literal">NULL</span>, (<span class="keyword">void</span> * (*)(<span class="keyword">void</span> *))&amp;mutexFairTest, <span class="literal">NULL</span>);</span><br><span class="line">	pthread_create(<span class="keyword">new</span> <span class="keyword">pthread_t</span>, <span class="literal">NULL</span>, (<span class="keyword">void</span> * (*)(<span class="keyword">void</span> *))&amp;mutexFairTest, <span class="literal">NULL</span>);</span><br><span class="line">	pthread_create(<span class="keyword">new</span> <span class="keyword">pthread_t</span>, <span class="literal">NULL</span>, (<span class="keyword">void</span> * (*)(<span class="keyword">void</span> *))&amp;mutexFairTest, <span class="literal">NULL</span>);</span><br><span class="line">	pthread_create(<span class="keyword">new</span> <span class="keyword">pthread_t</span>, <span class="literal">NULL</span>, (<span class="keyword">void</span> * (*)(<span class="keyword">void</span> *))&amp;mutexFairTest, <span class="literal">NULL</span>);</span><br><span class="line">	pthread_mutex_unlock(&amp;lock);</span><br><span class="line"> </span><br><span class="line">	sleep(<span class="number">100</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>输出结果是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">localCount:16930422</span><br><span class="line">localCount:16525616</span><br><span class="line">localCount:16850294</span><br><span class="line">localCount:16129844</span><br><span class="line">localCount:17329693</span><br><span class="line">localCount:16234137</span><br></pre></td></tr></table></figure>
+<p>还特意在一个单CPU的虚拟机上测试了下。输出的结果差不多。操作系统是ububtu14.04。</p>
+<h2 id="连续调用pthread-cond-signal，会唤醒多少次-多少个线程？"><a href="#连续调用pthread-cond-signal，会唤醒多少次-多少个线程？" class="headerlink" title="连续调用pthread_cond_signal，会唤醒多少次/多少个线程？"></a>连续调用pthread_cond_signal，会唤醒多少次/多少个线程？</h2><p>比如线程a,b 在调用pthread_cond_wait之后等待，然后线程c, d同时调用pthread_cond_signal，那么a, b线程是否都能被唤醒？</p>
+<p>会不会出现c, d, a 这种调用顺序，然后b一直在等待，然后死锁了？</p>
+<p>根据文档：</p>
+<blockquote>
+<p>The pthread_cond_signal() function shall unblock at least one of the threads that are blocked on the specified condition variable cond (if any threads are blocked on cond).</p>
+</blockquote>
+<p><strong>因此，如果有线程已经在调用pthread_cond_wait等待的情况下，pthread_cond_signal调用至少会唤醒等待中的一个线程。</strong></p>
+<p>所以不会出现上面的线程b一直等待的情况。</p>
+<p>但是，我们再仔细考虑下：</p>
+<p><strong>如何确认线程a, b 调用pthread_cond_wait完成了？还是只是刚切换到内核态？显然是没有办法知道的。</strong></p>
+<p>所以，我们平时编程肯定不会写这样的代码，应该是共享变量，在获取到锁之后，再修改变量。这样子来做同步。参考上面《UNIX环境高级编程》的例子。</p>
+<p>不过，这个问题也是挺有意思的。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a href="http://en.wikipedia.org/wiki/Spurious_wakeup" target="_blank" rel="noopener">http://en.wikipedia.org/wiki/Spurious_wakeup</a></li>
+<li><a href="http://siwind.iteye.com/blog/1469216" target="_blank" rel="noopener">http://siwind.iteye.com/blog/1469216</a></li>
+<li><a href="http://www.cppblog.com/Solstice/archive/2013/09/09/203094.html" target="_blank" rel="noopener">http://www.cppblog.com/Solstice/archive/2013/09/09/203094.html</a></li>
+<li><a href="http://www.cs.cmu.edu/afs/cs/academic/class/15492-f07/www/pthreads.html" target="_blank" rel="noopener">http://www.cs.cmu.edu/afs/cs/academic/class/15492-f07/www/pthreads.html</a></li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+      <div>
+        <div id="wechat_subscriber" style="display: block; padding: 10px 0; margin: 20px auto; width: 100%; text-align: center">
+  <img id="wechat_subscriber_qcode" src="/img/qrcode_gongzhonghao.jpg" alt="横云断岭/hengyunabc wechat" style="width: 200px; max-width: 100%;">
+  <div>欢迎您扫一扫上面的微信公众号，订阅横云断岭的专栏</div>
+</div>
+
+      </div>
+    
+
+    
+      
+    
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/cpp/" rel="tag"># cpp</a>
+          
+            <a href="/tags/cpp11/" rel="tag"># cpp11</a>
+          
+            <a href="/tags/posix/" rel="tag"># posix</a>
+          
+            <a href="/tags/condition/" rel="tag"># condition</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+              <div>
+                
+  <div class="bdsharebuttonbox">
+    <a href="#" class="bds_tsina" data-cmd="tsina" title="分享到新浪微博"></a>
+    <a href="#" class="bds_douban" data-cmd="douban" title="分享到豆瓣网"></a>
+    <a href="#" class="bds_sqq" data-cmd="sqq" title="分享到QQ好友"></a>
+    <a href="#" class="bds_qzone" data-cmd="qzone" title="分享到QQ空间"></a>
+    <a href="#" class="bds_weixin" data-cmd="weixin" title="分享到微信"></a>
+    <a href="#" class="bds_tieba" data-cmd="tieba" title="分享到百度贴吧"></a>
+    <a href="#" class="bds_twi" data-cmd="twi" title="分享到Twitter"></a>
+    <a href="#" class="bds_fbook" data-cmd="fbook" title="分享到Facebook"></a>
+    <a href="#" class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common": {
+        "bdText": "",
+        "bdMini": "2",
+        "bdMiniList": false,
+        "bdPic": ""
+      },
+      "share": {
+        "bdSize": "16",
+        "bdStyle": "0"
+      },
+      "image": {
+        "viewList": ["tsina", "douban", "sqq", "qzone", "weixin", "twi", "fbook"],
+        "viewText": "分享到：",
+        "viewSize": "16"
+      }
+    }
+  </script>
+
+<script>
+  with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='//bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+</script>
+
+              </div>
+            
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/cpp11-once_flag-call_once/" rel="next" title="C++11中once_flag，call_once实现分析">
+                <i class="fa fa-chevron-left"></i> C++11中once_flag，call_once实现分析
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/java-park/" rel="prev" title="Java的LockSupport.park()实现分析">
+                Java的LockSupport.park()实现分析 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="gitalk-container">
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">横云断岭/hengyunabc</p>
+              <p class="site-description motion-element" itemprop="description">日落黄金台金黄落日</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">89</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">108</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+            <div class="links-of-author motion-element">
+              
+                <span class="links-of-author-item">
+                  
+                  
+                    
+                  
+                  
+                    
+                  
+                  <a href="https://github.com/hengyunabc" title="GitHub &rarr; https://github.com/hengyunabc" rel="noopener" target="_blank"><i class="fa fa-fw fa-github"></i>GitHub</a>
+                </span>
+              
+            </div>
+          
+
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Spurious-wakeup"><span class="nav-number">2.</span> <span class="nav-text">Spurious wakeup</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#wait-morphing优化"><span class="nav-number">3.</span> <span class="nav-text">wait morphing优化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#为什么要用while循环来判断条件是否成立？"><span class="nav-number">4.</span> <span class="nav-text">为什么要用while循环来判断条件是否成立？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pthread-cond-signal和pthread-cond-broadcast"><span class="nav-number">5.</span> <span class="nav-text">pthread_cond_signal和pthread_cond_broadcast</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#mutex，condition是不是公平-fair-的？"><span class="nav-number">6.</span> <span class="nav-text">mutex，condition是不是公平(fair)的？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#连续调用pthread-cond-signal，会唤醒多少次-多少个线程？"><span class="nav-number">7.</span> <span class="nav-text">连续调用pthread_cond_signal，会唤醒多少次/多少个线程？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">8.</span> <span class="nav-text">参考</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2020</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">横云断岭/hengyunabc</span>
+
+  
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v6.7.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+  
+    
+
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+
+
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: '50643d6f5623a7ebceb4',
+    clientSecret: '96c9445601da54f51951d1fe16d9105d71579334',
+    repo: 'hengyunabc.github.io',
+    owner: 'hengyunabc',
+    admin: ['hengyunabc'],
+    id: md5(location.pathname),
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+  
+
+
+
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
